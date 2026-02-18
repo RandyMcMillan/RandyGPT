@@ -3,18 +3,27 @@
 /* ------------------------------------------------------------------ */
 
 use candle_core::{Device, Result as CandleResult, Tensor};
+use std::panic::{self, AssertUnwindSafe};
 use crate::config::USE_METAL;
 
 lazy_static::lazy_static! {
     pub static ref METAL_DEVICE: Option<Device> = {
         if USE_METAL {
-            match Device::new_metal(0) {
-                Ok(dev) => {
+            let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                Device::new_metal(0)
+            }));
+
+            match result {
+                Ok(Ok(dev)) => {
                     eprintln!("✓ Metal GPU enabled on device: {:?}", dev);
                     Some(dev)
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     eprintln!("⚠ Metal GPU unavailable: {}", e);
+                    None
+                }
+                Err(_) => {
+                    eprintln!("⚠ Metal GPU unavailable (initialization panicked).");
                     None
                 }
             }
