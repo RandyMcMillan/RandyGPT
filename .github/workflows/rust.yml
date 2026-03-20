@@ -23,9 +23,21 @@ jobs:
     - name: Build/Test
       run: cargo build --verbose && cargo test
       continue-on-error: true
-    - name: Build/Test (model-xs feature)
-      run: cargo build --features model-xs --verbose && cargo test --features model-xs
+    - name: Build/Test (model-xs)
+      run: cargo build --features model-xs --verbose && cargo test --features model-xs --verbose
       continue-on-error: true
-    - name: Build/Test (model-s feature)
-      run: cargo build --features model-s --verbose && cargo test --features model-s
+    - name: Build/Test (model-ds feature)
+      run: cargo build --features model-ds --verbose && cargo test --features model-ds
+      continue-on-error: true
+    - name: Build/Test (model-m feature)
+      run: cargo build --features model-m --verbose && cargo test --features model-m
+      continue-on-error: true
+    - name: Build/Test (model-deep feature)
+      run: cargo build --features model-deep --verbose && cargo test --features model-deep
+      continue-on-error: true
+    - name: Build/Test (model-xl feature)
+      run: cargo build --features model-xl --verbose && cargo test --features model-xl
+      continue-on-error: true
+    - name: Build/Test (model-l feature)
+      run: cargo build --features model-l --verbose && cargo test --features model-l
       continue-on-error: true
