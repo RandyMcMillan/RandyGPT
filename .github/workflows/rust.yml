@@ -17,6 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-15-intel, macos-latest]
+        feature: [model-xs, model-ds, model.m, model-deep, model-xl, model-l]
 
     steps:
     - uses: actions/checkout@v4
@@ -24,20 +25,5 @@ jobs:
       run: cargo build --verbose && cargo test
       continue-on-error: true
     - name: Build/Test (model-xs feature)
-      run: cargo build --features model-xs --verbose && cargo test --features model-xs --verbose
-      continue-on-error: true
-    - name: Build/Test (model-ds feature)
-      run: cargo build --features model-ds --verbose && cargo test --features model-ds
-      continue-on-error: true
-    - name: Build/Test (model-m feature)
-      run: cargo build --features model-m --verbose && cargo test --features model-m
-      continue-on-error: true
-    - name: Build/Test (model-deep feature)
-      run: cargo build --features model-deep --verbose && cargo test --features model-deep
-      continue-on-error: true
-    - name: Build/Test (model-xl feature)
-      run: cargo build --features model-xl --verbose && cargo test --features model-xl
-      continue-on-error: true
-    - name: Build/Test (model-l feature)
-      run: cargo build --features model-l --verbose && cargo test --features model-l
+      run: cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }} --verbose
       continue-on-error: true
