@@ -24,6 +24,6 @@ jobs:
     - name: Build/Test
       run: cargo build --verbose && cargo test
       continue-on-error: true
-    - name: Build/Test (model-xs feature)
+    - name: Build/Test
       run: cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }} --verbose
       continue-on-error: true
