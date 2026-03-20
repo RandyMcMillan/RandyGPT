@@ -2,33 +2,41 @@
 name = "randygpt"
 version = "0.9.2"
 edition = "2021"
+default-run = "randygpt"
 
 [features]
 # Model size presets — select with: cargo build --release --features model-s
-# Default (no feature) = model-xs: 116-dim, 4-head, 3-layer, ~0.86M params
-model-xs = []   # 116-dim, 4-head, 3-layer,  ~0.86M params  ← default
-model-s  = []   # 128-dim, 4-head, 8-layer,  ~1.6M params
-model-ds = []   # 128-dim, 4-head, 12-layer, ~2.78M params — deep-s (more layers, same width)
-model-m  = []   # 192-dim, 6-head, 6-layer,  ~2.7M params, ~1100ms/iter
-model-l  = []   # 256-dim, 8-head, 6-layer,  ~4.82M params, ~1835ms/iter
-model-deep = [] # 192-dim, 6-head, 16-layer, ~7.5M params — depth experiment
-model-xl = []   # 384-dim, 8-head, 8-layer,  ~10.8M params, ~4000ms/iter
+# Default (no feature) = model-l: 256-dim, 8-head, 6-layer, ~4.82M params
+# Reference src/config.rs
+model-xs = []
+model-s  = []
+model-ds  = []
+model-m  = []
+model-deep = []
+model-xl = []
+model-l = []
 
 [dependencies]
 candle-nn = "0.9.2"
 ctrlc = "3.4"
 lazy_static = "1.5.0"
+rand = "0.8.0"
 rayon = "1.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tiny_http = "0.12"
+tiny_http = "0.12.0"
 
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+candle-core = { version = "0.9.2" }
 # Metal GPU acceleration on macOS only
 [target.'cfg(target_os = "macos")'.dependencies]
 candle-core = { version = "0.9.2", features = ["metal"] }
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-candle-core = { version = "0.9.2" }
+[profile.dev]
+opt-level = 3
+lto = true
+codegen-units = 1
+debug = false
 
 [profile.release]
 opt-level = 3
