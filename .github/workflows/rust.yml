@@ -20,15 +20,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
+    - name: Build/Test
+      run: cargo build --verbose && cargo test
       continue-on-error: true
-    - name: Run tests
-      run: cargo test --verbose
+    - name: Build/Test (model-xs feature)
+      run: cargo build --features model-xs --verbose && cargo test --features model-xs
       continue-on-error: true
-    - name: Build (model-xs feature)
-      run: cargo build --features model-xs --verbose
-      continue-on-error: true
-    - name: Build (model-s feature)
-      run: cargo build --features model-s --verbose
+    - name: Build/Test (model-s feature)
+      run: cargo build --features model-s --verbose && cargo test --features model-s
       continue-on-error: true
