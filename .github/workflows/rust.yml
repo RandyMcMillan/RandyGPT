@@ -23,7 +23,7 @@ jobs:
     - name: Build/Test
       run: cargo build --verbose && cargo test
       continue-on-error: true
-    - name: Build/Test (model-xs)
+    - name: Build/Test (model-xs feature)
       run: cargo build --features model-xs --verbose && cargo test --features model-xs --verbose
       continue-on-error: true
     - name: Build/Test (model-ds feature)
