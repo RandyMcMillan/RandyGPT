@@ -17,13 +17,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-15-intel, macos-latest]
-        feature: [model-xs, model-ds, model.m, model-deep, model-xl, model-l]
+        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build/Test
-      run: cargo build --verbose && cargo test
-      continue-on-error: true
-    - name: Build/Test
-      run: cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }} --verbose
+    - name: Build/Test ${{ matrix.feature }}
+      run: |
+        if [[ "${{ matrix.feature }}" == "default" ]]; then
+          cargo build --verbose && cargo test
+        else
+          cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
+        fi
       continue-on-error: true
