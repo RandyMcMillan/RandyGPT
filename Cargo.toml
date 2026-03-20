@@ -2,6 +2,7 @@
 name = "randygpt"
 version = "0.9.2"
 edition = "2021"
+default-run = "randygpt"
 
 [features]
 # Model size presets — select with: cargo build --release --features model-s
