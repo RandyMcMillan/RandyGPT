@@ -1,0 +1,55 @@
+name: macos-matrix
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "ma*" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-latest]
+        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build/Test ${{ matrix.feature }}
+      run: |
+        if [[ "${{ matrix.feature }}" == "default" ]]; then
+          cargo build --verbose && cargo test
+        else
+          cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
+        fi
+      continue-on-error: true
+
+  build-linux:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
+        target: [x86_64-unknown-linux-gnu]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install cross-compilation tool `cross`
+      run: cargo install cross --git https://github.com/cross-rs/cross
+    - name: Build/Test ${{ matrix.target }} with cross
+      run: |
+        if [[ "${{ matrix.feature }}" == "default" ]]; then
+          cross build --verbose --target ${{ matrix.target }} && cross test --target ${{ matrix.target }}
+        else
+          cross build --features ${{ matrix.feature }} --verbose --target ${{ matrix.target }} && cross test --features ${{ matrix.feature }} --target ${{ matrix.target }}
+        fi
+      continue-on-error: true
