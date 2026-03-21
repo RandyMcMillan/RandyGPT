@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15-intel, macos-latest]
+        os: [macos-15-intel, macos-latest]
         feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
 
     steps:
