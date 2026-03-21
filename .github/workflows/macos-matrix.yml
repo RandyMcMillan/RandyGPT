@@ -1,13 +1,14 @@
-name: Rust
+name: macos-matrix
 
 on:
   push:
     branches: [ "**" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "ma*" ]
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -21,10 +22,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install build dependencies for Ubuntu
-      if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-      continue-on-error: true
     - name: Build/Test ${{ matrix.feature }}
       run: |
         if [[ "${{ matrix.feature }}" == "default" ]]; then
@@ -33,3 +30,18 @@ jobs:
           cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
         fi
       #continue-on-error: true
+
+  build-linux:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: scripts/build-linux.sh
+      run: |
+        brew install llvm && ./scripts/build-linux.sh
+      continue-on-error: true
