@@ -43,23 +43,28 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install Rust target and LLVM for cross-compilation
+    - name: Install Rust target, LLVM, and Linux headers for cross-compilation
       run: |
         rustup target add ${{ matrix.target }} || true
-        brew install llvm
+        brew install llvm x86_64-linux-gnu-libc-dev
 
-    - name: Set LLVM paths for cross-compiler
-      id: set_llvm_paths
-      run: echo "LLVM_PATH=$(brew --prefix llvm)" >> $GITHUB_OUTPUT
+    - name: Set LLVM paths and sysroot for cross-compiler
+      id: set_paths
+      run: |
+        echo "LLVM_PATH=$(brew --prefix llvm)" >> $GITHUB_OUTPUT
+        echo "SYSROOT_PATH=$(brew --prefix x86_64-linux-gnu-libc-dev)" >> $GITHUB_OUTPUT
 
     - name: Configure cross-compiler for Linux on macOS
       env:
-        LLVM_PATH: ${{ steps.set_llvm_paths.outputs.LLVM_PATH }}
+        LLVM_PATH: ${{ steps.set_paths.outputs.LLVM_PATH }}
+        SYSROOT_PATH: ${{ steps.set_paths.outputs.SYSROOT_PATH }}
       run: |
         echo "CC_${{ matrix.target }}=${LLVM_PATH}/bin/clang" >> $GITHUB_ENV
         echo "CXX_${{ matrix.target }}=${LLVM_PATH}/bin/clang++" >> $GITHUB_ENV
         echo "AR_${{ matrix.target }}=${LLVM_PATH}/bin/llvm-ar" >> $GITHUB_ENV
         echo "LD_${{ matrix.target }}=${LLVM_PATH}/bin/lld" >> $GITHUB_ENV
+        echo "CFLAGS_${{ matrix.target }}=--sysroot=${SYSROOT_PATH}/x86_64-linux-gnu" >> $GITHUB_ENV
+        echo "CXXFLAGS_${{ matrix.target }}=--sysroot=${SYSROOT_PATH}/x86_64-linux-gnu" >> $GITHUB_ENV
 
     - name: Build/Test ${{ matrix.target }}
       run: |
