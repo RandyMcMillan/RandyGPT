@@ -4,7 +4,8 @@ version = "0.9.3"
 edition = "2021"
 authors = []
 description = ""
-homepage = ""
+homepage = "https://github.com/MonumentalSystems/RandyGPT"
+repository = "https://github.com/MonumentalSystems/RandyGPT"
 license = ""
 #license-file = ""
 default-run = "randygpt"
@@ -50,6 +51,11 @@ debug = false
 opt-level = 3
 lto = true
 codegen-units = 1
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
 
 [build-dependencies]
 cc = "1.2.57"
