@@ -14,5 +14,7 @@ fn main() {
     }
     #[cfg(not(target_os = "macos"))]
     {
+        // Explicitly link MKL runtime library for non-macOS targets (e.g., Linux with MKL feature)
+        println!("cargo:rustc-link-lib=mkl_rt");
     }
 }
