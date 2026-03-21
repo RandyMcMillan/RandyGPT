@@ -10,7 +10,7 @@ lazy_static::lazy_static! {
     pub static ref METAL_DEVICE: Option<Device> = {
         if USE_METAL {
             let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                Device::new_metal(0)
+                Device::metal_if_available(0)
             }));
 
             match result {
