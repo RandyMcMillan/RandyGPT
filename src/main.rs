@@ -21,7 +21,7 @@ use model::{CandleModel, GPTModel};
 use optimizer::GpuAdamState;
 use rng::Rng;
 use tokenizer::Tokenizer;
-use train::{estimate_loss, generate, generate_cpu, generate_cpu_streaming, train, train_candle};
+use train::{estimate_loss, generate, /*generate_cpu, */generate_cpu_streaming, train, train_candle};
 
 fn load_training_data(path: &str) -> std::io::Result<String> {
     let file = File::open(path)?;

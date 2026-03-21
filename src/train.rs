@@ -14,7 +14,7 @@ use crate::ops::{
     clip_gradients, cross_entropy_loss, linear_bwd_dx_only, linear_bwd_dw_batched,
     softmax_bwd, softmax_fwd,
 };
-use crate::optimizer::{adam_step, get_learning_rate, zero_grads, GpuAdamState};
+use crate::optimizer::{adam_step, /*get_learning_rate, */zero_grads, GpuAdamState};
 use crate::rng::Rng;
 use crate::tokenizer::Tokenizer;
 use crate::metal::METAL_DEVICE;
