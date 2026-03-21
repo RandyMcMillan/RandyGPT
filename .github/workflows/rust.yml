@@ -32,4 +32,4 @@ jobs:
         else
           cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
         fi
-      continue-on-error: true
+      #continue-on-error: true
