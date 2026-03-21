@@ -13,7 +13,6 @@ mod train;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read as _, Write as _};
 use std::path::Path;
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 use checkpoint::{load_checkpoint, load_checkpoint_cpu, load_checkpoint_v2, load_checkpoint_v3};
 use config::*;
@@ -71,6 +70,7 @@ fn build_valid_starts(data: &[usize]) -> Vec<usize> {
 }
 
 fn main() -> std::io::Result<()> {
+    ctrlc_tiny::init_ctrlc().expect("Error setting Ctrl-C handler");
     // ── CLI arguments ─────────────────────────────────────────────────
     // Usage: randygpt [--iters N] [--resume [path]]
     let args: Vec<String> = std::env::args().collect();
@@ -415,10 +415,7 @@ fn main() -> std::io::Result<()> {
 
         let model_name = format!("randygpt-{}L-{}H-{}D", N_LAYER, N_HEAD, N_EMBD);
 
-        ctrlc::set_handler(|| {
-            println!("\nServer stopped.");
-            std::process::exit(0);
-        }).ok();
+
 
         serve::run_server(&addr, &model, &tokenizer, &model_name, api_key.as_deref());
         return Ok(());
@@ -659,13 +656,6 @@ fn main() -> std::io::Result<()> {
         initial_loss, initial_val_loss, initial_val_loss.exp());
     println!();
 
-    // ── Ctrl-C handler ────────────────────────────────────────────────
-    let ctrlc_flag = Arc::new(AtomicBool::new(false));
-    {
-        let flag = ctrlc_flag.clone();
-        ctrlc::set_handler(move || { flag.store(true, Ordering::Relaxed); })
-            .expect("Error setting Ctrl-C handler");
-    }
 
     // ── Train ─────────────────────────────────────────────────────────
     if use_metal {
@@ -694,14 +684,14 @@ fn main() -> std::io::Result<()> {
         train_candle(&mut candle_model, &mut opt, &data, &val_data,
             &valid_starts, &val_valid_starts,
             iterations, &mut rng,
-            iter_start, step_start, best_loss_start, lr, min_lr, ctrlc_flag,
+            iter_start, step_start, best_loss_start, lr, min_lr,
             &checkpoint_prefix);
         model = candle_model.to_gpt()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
     } else {
         train(&mut model, &data, &val_data, &valid_starts, &val_valid_starts,
             iterations, &mut rng,
-            iter_start, step_start, best_loss_start, lr, min_lr, ctrlc_flag,
+            iter_start, step_start, best_loss_start, lr, min_lr,
             &checkpoint_prefix);
     }
 
