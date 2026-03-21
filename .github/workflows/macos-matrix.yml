@@ -43,9 +43,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install x86_64-linux-gnu-gcc for cross-compilation
+      run: brew install gcc
     - name: Build/Test ${{ matrix.target }}
       run: |
-        brew install llvm && ./scripts/build-linux.sh
         rustup target add x86_64-unknown-linux-gnu || true;
         cargo build --target x86_64-unknown-linux-gnu
         if [[ "${{ matrix.feature }}" == "default" ]]; then
