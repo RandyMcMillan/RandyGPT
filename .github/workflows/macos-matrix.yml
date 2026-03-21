@@ -30,27 +30,3 @@ jobs:
           cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
         fi
       continue-on-error: true
-
-  build-linux:
-
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
-        target: [x86_64-unknown-linux-gnu]
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install system dependencies for BLAS
-      run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
-    - name: Install cross-compilation tool `cross`
-      run: cargo install cross --git https://github.com/cross-rs/cross
-    - name: Build/Test ${{ matrix.target }} with cross
-      run: |
-        if [[ "${{ matrix.feature }}" == "default" ]]; then
-          cross build --verbose --target ${{ matrix.target }} && cross test --target ${{ matrix.target }}
-        else
-          cross build --features ${{ matrix.feature }} --verbose --target ${{ matrix.target }} && cross test --features ${{ matrix.feature }} --target ${{ matrix.target }}
-        fi
-      continue-on-error: true
