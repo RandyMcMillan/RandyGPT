@@ -1,4 +1,4 @@
-name: Rust Examples CI
+name: examples.yml
 
 on:
   push:
