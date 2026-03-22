@@ -23,7 +23,7 @@ fn main() {
         }
         #[cfg(target_arch = "x86_64")]
         {
-            println!("cargo:rustc-link-lib=blas");
+            println!("cargo:rustc-link-lib=openblas");
         }
     }
 }
