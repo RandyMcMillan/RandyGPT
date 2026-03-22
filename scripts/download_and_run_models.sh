@@ -76,3 +76,15 @@ cargo run --example hf_bert_inference --release
 
 echo ""
 echo "Hugging Face BERT model example finished."
+
+echo ""
+echo "--- Running Hugging Face Qwen3-Coder-Next Model Example ---"
+echo "This example downloads the 'Qwen/Qwen3-Coder-Next-GGUF' model from Hugging Face Hub (approx. 45GB for Q4_K_M)"
+echo "and uses it to generate code based on a prompt."
+echo "Note: This model is very large and may require significant RAM/VRAM."
+echo ""
+
+cargo run --example hf_qwen_inference --release
+
+echo ""
+echo "Hugging Face Qwen3-Coder-Next model example finished."
