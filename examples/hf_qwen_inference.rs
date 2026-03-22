@@ -14,7 +14,7 @@ use std::path::PathBuf; // Re-added
 
 // Model and file constants
 const MODEL_ID: &str       = "Qwen/Qwen3-Coder-Next"; // Changed to original model ID
-const SAFETENSORS_FILES_PATTERN: &str = "model-*-of-00040.safetensors";
+
 const SAFETENSORS_INDEX_FILE: &str = "model.safetensors.index.json";
 const TOKENIZER_FILE: &str = "tokenizer.json";
 const CONFIG_FILE: &str    = "config.json";
