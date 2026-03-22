@@ -34,4 +34,4 @@ jobs:
         else
           cross build --features ${{ matrix.feature }} --verbose --target ${{ matrix.target }} && cross test --features ${{ matrix.feature }} --target ${{ matrix.target }}
         fi
-      continue-on-error: true
+      #continue-on-error: true
