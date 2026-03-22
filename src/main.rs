@@ -204,8 +204,10 @@ fn main() -> std::io::Result<()> {
                 println!("  --train-file PATH  Training text file (default: train.txt)");
                 println!("  --vocab PATH       BPE vocab JSON file (default: vocab.json)");
                 println!("  --checkpoint NAME  Checkpoint filename prefix (default: checkpoint)");
-                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {}). If N is omitted, uses default BPE_VOCAB_SIZE.", BPE_VOCAB_SIZE);
-                println!("  --resume [PATH]    Resume from checkpoint (default: <prefix>_best.bin, where <prefix> is from --checkpoint or train-file).");
+                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", BPE_VOCAB_SIZE);
+                println!("                     If N is omitted, uses default BPE_VOCAB_SIZE.");
+                println!("  --resume [PATH]    Resume from checkpoint (default: <prefix>_best.bin,");
+                println!("                     where <prefix> is from --checkpoint or train-file).");
                 println!("  --fine-tune        Load weights only, reset iter/step/best val (for domain transfer)");
                 println!("  --lr LR            Learning rate override");
                 println!("  --min-lr LR        Minimum learning rate override\n");
