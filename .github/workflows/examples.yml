@@ -3,8 +3,8 @@ name: Rust Examples CI
 on:
   push:
     branches:
-      - main
-      - master
+      - m**
+      - **
     paths:
       - '**.rs'
       - 'Cargo.toml'
@@ -12,8 +12,8 @@ on:
       - '.github/workflows/examples.yml'
   pull_request:
     branches:
-      - main
-      - master
+      - m**
+      - **
     paths:
       - '**.rs'
       - 'Cargo.toml'
