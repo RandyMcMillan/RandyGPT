@@ -2,18 +2,14 @@ name: Rust Examples CI
 
 on:
   push:
-    branches:
-      - m**
-      - **
+    branches: [ "**" ]
     paths:
       - '**.rs'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/examples.yml'
   pull_request:
-    branches:
-      - m**
-      - **
+    branches: [ "**" ]
     paths:
       - '**.rs'
       - 'Cargo.toml'
