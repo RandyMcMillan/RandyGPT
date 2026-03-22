@@ -58,7 +58,7 @@ pub fn run_server(
     println!("Server listening on http://{}", addr);
     println!("POST http://{}/ with JSON body:", addr);
     println!("  {{\"prompt\": \"Once upon a time\", \"max_tokens\": 200, \"temperature\": 0.8}}");
-    println!("Press Ctrl-C to stop.");
+
     println!();
 
     for mut request in server.incoming_requests() {

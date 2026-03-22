@@ -77,7 +77,7 @@ impl Tokenizer {
         }
     }
 
-    pub fn is_bpe(&self) -> bool {
+    pub fn _is_bpe(&self) -> bool {
         matches!(self.mode, TokenizerMode::Bpe(_))
     }
 
@@ -100,7 +100,7 @@ impl Tokenizer {
     // ── Convenience: first N vocab entries as display strings ───────────
     // Used in main.rs startup print.
 
-    pub fn sample_tokens(&self, n: usize) -> Vec<String> {
+    pub fn _sample_tokens(&self, n: usize) -> Vec<String> {
         let cap = n.min(self.vocab_size);
         match &self.mode {
             TokenizerMode::Char(ct) => {
@@ -464,7 +464,7 @@ impl BpeTokenizer {
         let lines: Vec<&str> = text.split('\n').collect();
         let nl_id = self.token_to_id.get("\n").copied().unwrap_or(usize::MAX);
         let merge_map = &self.merge_map;
-        let token_to_id = &self.token_to_id;
+        let _token_to_id = &self.token_to_id;
 
         let reverse_merge_map = &self.reverse_merge_map;
         let char_to_id        = &self.char_to_id;
