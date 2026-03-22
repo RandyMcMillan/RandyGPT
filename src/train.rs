@@ -2,7 +2,6 @@
 /* Training loop, loss estimation, and text generation               */
 /* ------------------------------------------------------------------ */
 
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::time::Instant;
 use rayon::prelude::*;
 
@@ -15,7 +14,7 @@ use crate::ops::{
     clip_gradients, cross_entropy_loss, linear_bwd_dx_only, linear_bwd_dw_batched,
     softmax_bwd, softmax_fwd,
 };
-use crate::optimizer::{adam_step, get_learning_rate, zero_grads, GpuAdamState};
+use crate::optimizer::{adam_step, /*get_learning_rate, */zero_grads, GpuAdamState};
 use crate::rng::Rng;
 use crate::tokenizer::Tokenizer;
 use crate::metal::METAL_DEVICE;
@@ -201,7 +200,6 @@ pub fn train(
     best_loss_start: f32,
     max_lr: f32,
     min_lr: f32,
-    ctrlc_flag: Arc<AtomicBool>,
     checkpoint_prefix: &str,
 ) {
     println!("=== Starting Training (Multi-Core with Rayon) ===");
@@ -665,7 +663,7 @@ pub fn train(
         }
 
         // Ctrl-C: flush and exit
-        if ctrlc_flag.load(Ordering::Relaxed) {
+        if ctrlc_tiny::is_ctrlc_received() {
             ckpt_buf = serialize_checkpoint(model, iter, step, best_loss);
             if best_iter == iter || ckpt_best_buf.is_empty() {
                 ckpt_best_buf = ckpt_buf.clone();
@@ -720,7 +718,6 @@ pub fn train_candle(
     best_loss_start: f32,
     max_lr: f32,
     min_lr: f32,
-    ctrlc_flag: Arc<AtomicBool>,
     checkpoint_prefix: &str,
 ) {
     println!("=== Starting Training (Metal GPU via Candle) ===");
@@ -912,7 +909,7 @@ pub fn train_candle(
         }
 
         // ── Ctrl-C ────────────────────────────────────────────────────
-        if ctrlc_flag.load(Ordering::Relaxed) {
+        if ctrlc_tiny::is_ctrlc_received() {
             ckpt_buf = serialize_checkpoint_v3(model, opt, iter, step, best_val_loss);
             if ckpt_best_buf.is_empty() { ckpt_best_buf = ckpt_buf.clone(); }
             let elapsed = train_start.elapsed().as_secs_f32();

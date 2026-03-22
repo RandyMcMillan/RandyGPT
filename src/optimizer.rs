@@ -146,7 +146,7 @@ pub fn zero_grads(model: &mut GPTModel) {
 }
 
 // Learning rate schedule: constant → cosine decay (no warmup)
-pub fn get_learning_rate(iter: usize, max_iters: usize) -> f32 {
+pub fn _get_learning_rate(iter: usize, max_iters: usize) -> f32 {
     let decay_start = (max_iters * 3) / 5; // start decay at 60%
 
     if iter < decay_start {
