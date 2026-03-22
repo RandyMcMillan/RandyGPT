@@ -3,46 +3,24 @@ name: examples.yml
 on:
   push:
     branches: [ "**" ]
-    paths:
-      - '**.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/examples.yml'
   pull_request:
-    branches: [ "**" ]
-    paths:
-      - '**.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/examples.yml'
+    branches: [ "ma*" ]
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-and-run-examples:
+  build:
+
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: stable
-        profile: minimal
-
-    - name: Cache Cargo dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+    - uses: actions/checkout@v4
+    - name: Install system dependencies for BLAS
+      run: sudo apt-get update && sudo apt-get install -y libopenblas-dev build-essential
 
     - name: Build all examples
       run: cargo build --examples --release -j8
