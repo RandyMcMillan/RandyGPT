@@ -1,0 +1,83 @@
+name: Rust Examples CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '**.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/examples.yml'
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - '**.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/examples.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-run-examples:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        profile: minimal
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Build all examples
+      run: cargo build --examples --release -j8
+
+    - name: Run basic example (short timeout)
+      run: cargo run --example basic --release -- --help
+      timeout-minutes: 1
+
+    - name: Run benchmark example (short timeout)
+      run: cargo run --example benchmark --release -- --help
+      timeout-minutes: 1
+
+    - name: Run simple_bigram example (short timeout)
+      run: cargo run --example simple_bigram --release -- --help
+      timeout-minutes: 1
+
+    - name: Run test_metal example (short timeout - will likely fail on non-Metal runners)
+      run: cargo run --example test_metal --release -- --help
+      timeout-minutes: 1
+      continue-on-error: true # Allow this to fail if Metal is not available
+
+    - name: Run hf_bert_inference example (download & run - short timeout)
+      # This step will download the BERT model (~90MB). The timeout is short to check if it starts
+      # and attempts to download/load, not for full inference.
+      run: cargo run --example hf_bert_inference --release
+      timeout-minutes: 3 # Increased timeout slightly for download and initial load
+
+    - name: Run hf_qwen_inference example (download & run - longer timeout due to large model)
+      # WARNING: The Qwen model is ~45GB (Q4_K_M). This step will attempt to download it.
+      # The timeout is set generously to allow download to start and initial model loading.
+      # It will likely be cancelled before full inference due to timeout and/or memory limits.
+      run: cargo run --example hf_qwen_inference --release
+      timeout-minutes: 10 # Set a longer timeout for the large Qwen model download/initialization
+      continue-on-error: true # Allow this to fail gracefully if memory/download is an issue
