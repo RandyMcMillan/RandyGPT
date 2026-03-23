@@ -125,6 +125,6 @@ pub const MAX_LR_REDUCTIONS:   usize = 3;
 
 // ── Metal ─────────────────────────────────────────────────────────────────
 
-pub const USE_METAL: bool = true;
+pub const USE_METAL: bool = false;
 #[allow(dead_code)]
 pub const CANDLE_TRAIN: bool = true; // use Candle autograd for training when Metal available
