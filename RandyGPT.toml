@@ -1,0 +1,51 @@
+# RandyGPT Configuration
+# This file allows overriding default model and training parameters
+# set at compile time or by feature flags.
+#
+# Available parameters (and their defaults, equivalent to model-xs):
+#
+# [model]
+#   n_embd:   (usize) Dimension of the embeddings (default: 116)
+#             Common values from old feature flags:
+#             - model-xs: 116
+#             - model-s/ds: 128
+#             - model-m/deep: 192
+#             - model-l: 256
+#             - model-xl: 384
+#
+#   n_head:   (usize) Number of attention heads (default: 4)
+#             Common values from old feature flags:
+#             - model-xs/s/ds: 4
+#             - model-m/deep/xl: 6 or 8
+#
+#   n_layer:  (usize) Number of transformer layers (default: 3)
+#             Common values from old feature flags:
+#             - model-xs: 3
+#             - model-s: 8
+#             - model-ds: 12
+#             - model-m: 6
+#             - model-deep: 16
+#             - model-xl: 8
+#
+#   block_size: (usize) Maximum sequence length (default: 256)
+#
+#   max_vocab:  (usize) Maximum vocabulary size (default: 8192 for BPE)
+#
+# [training]
+#   batch_size: (usize) Training batch size (default: 64)
+#               Common values from old feature flags:
+#               - model-xs/s/ds/m/l: 64
+#               - model-deep: 16
+#
+#   bpe_vocab_path: (String) Path to the BPE vocabulary JSON file (default: "vocab.json")
+
+[model]
+n_embd = 116
+n_head = 4
+n_layer = 3
+block_size = 256
+max_vocab = 8192
+
+[training]
+batch_size = 64
+bpe_vocab_path = "vocab.json"
