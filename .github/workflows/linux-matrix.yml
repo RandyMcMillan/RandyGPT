@@ -28,6 +28,6 @@ jobs:
         if [[ "${{ matrix.feature }}" == "default" ]]; then
           cargo build --verbose && cargo test
         else
-          cargo build --features ${{ matrix.feature }} --verbose && cargo test --features ${{ matrix.feature }}
+          cargo build --verbose -- ${{ matrix.feature }} && cargo test --verbose -- ${{ matrix.feature }}
         fi
       #continue-on-error: true
