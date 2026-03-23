@@ -48,7 +48,7 @@ pub fn serialize_checkpoint(
     best_loss: f32,
 ) -> Vec<u8> {
     let n_params = model.wte.len() + model.wpe.len() + model.lm_head.len()
-        + N_LAYER * model.layers[0].wq.len() * 6;
+        + unsafe { N_LAYER } * model.layers[0].wq.len() * 6;
     let mut buf: Vec<u8> = Vec::with_capacity(24 + n_params * 4 * 3);
 
     // Header
@@ -62,7 +62,7 @@ pub fn serialize_checkpoint(
     write_f32s(&mut buf, &model.wte);
     write_f32s(&mut buf, &model.wpe);
     write_f32s(&mut buf, &model.lm_head);
-    for li in 0..N_LAYER {
+    for li in 0..unsafe { N_LAYER } {
         let l = &model.layers[li];
         write_f32s(&mut buf, &l.wq);
         write_f32s(&mut buf, &l.wk);
@@ -76,7 +76,7 @@ pub fn serialize_checkpoint(
     write_f32s(&mut buf, &model.m_wte);    write_f32s(&mut buf, &model.v_wte);
     write_f32s(&mut buf, &model.m_wpe);    write_f32s(&mut buf, &model.v_wpe);
     write_f32s(&mut buf, &model.m_lm_head); write_f32s(&mut buf, &model.v_lm_head);
-    for li in 0..N_LAYER {
+    for li in 0..unsafe { N_LAYER } {
         let l = &model.layers[li];
         write_f32s(&mut buf, &l.m_wq); write_f32s(&mut buf, &l.v_wq);
         write_f32s(&mut buf, &l.m_wk); write_f32s(&mut buf, &l.v_wk);
@@ -135,14 +135,14 @@ pub fn load_checkpoint(
     model.wte     = read_f32_slice(&mut f, model.wte.len())?;
     model.wpe     = read_f32_slice(&mut f, model.wpe.len())?;
     model.lm_head = read_f32_slice(&mut f, model.lm_head.len())?;
-    for li in 0..N_LAYER {
-        let n_sq = N_EMBD * N_EMBD;
+    for li in 0..unsafe { N_LAYER } {
+        let n_sq = unsafe { N_EMBD } * unsafe { N_EMBD };
         model.layers[li].wq  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wk  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wv  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wo  = read_f32_slice(&mut f, n_sq)?;
-        model.layers[li].fc1 = read_f32_slice(&mut f, MLP_DIM * N_EMBD)?;
-        model.layers[li].fc2 = read_f32_slice(&mut f, N_EMBD * MLP_DIM)?;
+        model.layers[li].fc1 = read_f32_slice(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD })?;
+        model.layers[li].fc2 = read_f32_slice(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM })?;
     }
 
     model.m_wte     = read_f32_slice(&mut f, model.wte.len())?;
@@ -151,8 +151,8 @@ pub fn load_checkpoint(
     model.v_wpe     = read_f32_slice(&mut f, model.wpe.len())?;
     model.m_lm_head = read_f32_slice(&mut f, model.lm_head.len())?;
     model.v_lm_head = read_f32_slice(&mut f, model.lm_head.len())?;
-    for li in 0..N_LAYER {
-        let n_sq = N_EMBD * N_EMBD;
+    for li in 0..unsafe { N_LAYER } {
+        let n_sq = unsafe { N_EMBD } * unsafe { N_EMBD };
         model.layers[li].m_wq  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].v_wq  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].m_wk  = read_f32_slice(&mut f, n_sq)?;
@@ -161,10 +161,10 @@ pub fn load_checkpoint(
         model.layers[li].v_wv  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].m_wo  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].v_wo  = read_f32_slice(&mut f, n_sq)?;
-        model.layers[li].m_fc1 = read_f32_slice(&mut f, MLP_DIM * N_EMBD)?;
-        model.layers[li].v_fc1 = read_f32_slice(&mut f, MLP_DIM * N_EMBD)?;
-        model.layers[li].m_fc2 = read_f32_slice(&mut f, N_EMBD * MLP_DIM)?;
-        model.layers[li].v_fc2 = read_f32_slice(&mut f, N_EMBD * MLP_DIM)?;
+        model.layers[li].m_fc1 = read_f32_slice(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD })?;
+        model.layers[li].v_fc1 = read_f32_slice(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD })?;
+        model.layers[li].m_fc2 = read_f32_slice(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM })?;
+        model.layers[li].v_fc2 = read_f32_slice(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM })?;
     }
 
     Ok((iter + 1, step, best_loss))
@@ -204,14 +204,14 @@ pub fn load_checkpoint_cpu(
     model.wte     = read_f32_slice(&mut f, model.wte.len())?;
     model.wpe     = read_f32_slice(&mut f, model.wpe.len())?;
     model.lm_head = read_f32_slice(&mut f, model.lm_head.len())?;
-    for li in 0..N_LAYER {
-        let n_sq = N_EMBD * N_EMBD;
+    for li in 0..unsafe { N_LAYER } {
+        let n_sq = unsafe { N_EMBD } * unsafe { N_EMBD };
         model.layers[li].wq  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wk  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wv  = read_f32_slice(&mut f, n_sq)?;
         model.layers[li].wo  = read_f32_slice(&mut f, n_sq)?;
-        model.layers[li].fc1 = read_f32_slice(&mut f, MLP_DIM * N_EMBD)?;
-        model.layers[li].fc2 = read_f32_slice(&mut f, N_EMBD * MLP_DIM)?;
+        model.layers[li].fc1 = read_f32_slice(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD })?;
+        model.layers[li].fc2 = read_f32_slice(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM })?;
     }
     // Skip moments — not needed for inference
 
@@ -243,7 +243,7 @@ pub fn serialize_checkpoint_v2(
     write_f32s(&mut buf, &pull(&model.wte));
     write_f32s(&mut buf, &pull(&model.wpe));
     write_f32s(&mut buf, &pull(&model.lm_head));
-    for li in 0..N_LAYER {
+    for li in 0..unsafe { N_LAYER } {
         let l = &model.layers[li];
         write_f32s(&mut buf, &pull(&l.wq));
         write_f32s(&mut buf, &pull(&l.wk));
@@ -297,18 +297,18 @@ pub fn load_checkpoint_v2(
         ).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
     };
 
-    model.wte     = upload(&mut f, model.vocab_size * N_EMBD, (model.vocab_size, N_EMBD))?;
-    model.wpe     = upload(&mut f, BLOCK_SIZE * N_EMBD,       (BLOCK_SIZE, N_EMBD))?;
-    model.lm_head = upload(&mut f, model.vocab_size * N_EMBD, (model.vocab_size, N_EMBD))?;
+    model.wte     = upload(&mut f, model.vocab_size * unsafe { N_EMBD }, (model.vocab_size, unsafe { N_EMBD }))?;
+    model.wpe     = upload(&mut f, unsafe { BLOCK_SIZE } * unsafe { N_EMBD },       (unsafe { BLOCK_SIZE }, unsafe { N_EMBD }))?;
+    model.lm_head = upload(&mut f, model.vocab_size * unsafe { N_EMBD }, (model.vocab_size, unsafe { N_EMBD }))?;
 
-    for li in 0..N_LAYER {
-        let n_sq = N_EMBD * N_EMBD;
-        model.layers[li].wq  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wk  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wv  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wo  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].fc1 = upload(&mut f, MLP_DIM * N_EMBD, (MLP_DIM, N_EMBD))?;
-        model.layers[li].fc2 = upload(&mut f, N_EMBD * MLP_DIM, (N_EMBD, MLP_DIM))?;
+    for li in 0..unsafe { N_LAYER } {
+        let n_sq = unsafe { N_EMBD } * unsafe { N_EMBD };
+        model.layers[li].wq  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wk  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wv  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wo  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].fc1 = upload(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD }, (unsafe { MLP_DIM }, unsafe { N_EMBD }))?;
+        model.layers[li].fc2 = upload(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM }, (unsafe { N_EMBD }, unsafe { MLP_DIM }))?;
     }
 
     // RGPT0002 was weights-only on disk — moments are zero-initialized by caller via GpuAdamState::new()
@@ -417,17 +417,17 @@ pub fn load_checkpoint_v3(
     };
 
     // Load weights
-    model.wte     = upload(&mut f, model.vocab_size * N_EMBD, (model.vocab_size, N_EMBD))?;
-    model.wpe     = upload(&mut f, BLOCK_SIZE * N_EMBD,       (BLOCK_SIZE, N_EMBD))?;
-    model.lm_head = upload(&mut f, model.vocab_size * N_EMBD, (model.vocab_size, N_EMBD))?;
-    for li in 0..N_LAYER {
-        let n_sq = N_EMBD * N_EMBD;
-        model.layers[li].wq  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wk  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wv  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].wo  = upload(&mut f, n_sq,             (N_EMBD, N_EMBD))?;
-        model.layers[li].fc1 = upload(&mut f, MLP_DIM * N_EMBD, (MLP_DIM, N_EMBD))?;
-        model.layers[li].fc2 = upload(&mut f, N_EMBD * MLP_DIM, (N_EMBD, MLP_DIM))?;
+    model.wte     = upload(&mut f, model.vocab_size * unsafe { N_EMBD }, (model.vocab_size, unsafe { N_EMBD }))?;
+    model.wpe     = upload(&mut f, unsafe { BLOCK_SIZE } * unsafe { N_EMBD },       (unsafe { BLOCK_SIZE }, unsafe { N_EMBD }))?;
+    model.lm_head = upload(&mut f, model.vocab_size * unsafe { N_EMBD }, (model.vocab_size, unsafe { N_EMBD }))?;
+    for li in 0..unsafe { N_LAYER } {
+        let n_sq = unsafe { N_EMBD } * unsafe { N_EMBD };
+        model.layers[li].wq  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wk  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wv  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].wo  = upload(&mut f, n_sq,             (unsafe { N_EMBD }, unsafe { N_EMBD }))?;
+        model.layers[li].fc1 = upload(&mut f, unsafe { MLP_DIM } * unsafe { N_EMBD }, (unsafe { MLP_DIM }, unsafe { N_EMBD }))?;
+        model.layers[li].fc2 = upload(&mut f, unsafe { N_EMBD } * unsafe { MLP_DIM }, (unsafe { N_EMBD }, unsafe { MLP_DIM }))?;
     }
 
     // Load Adam moments — shapes mirror all_vars() order

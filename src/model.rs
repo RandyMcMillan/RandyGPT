@@ -26,18 +26,18 @@ pub struct PosActs {
 impl PosActs {
     pub fn new() -> Self {
         Self {
-            x_embed:  vec![0.0; N_EMBD],
-            x_in:     vec![vec![0.0; N_EMBD]; N_LAYER],
-            xn_attn:  vec![vec![0.0; N_EMBD]; N_LAYER],
-            q:        vec![vec![0.0; N_EMBD]; N_LAYER],
-            k:        vec![vec![0.0; N_EMBD]; N_LAYER],
-            v:        vec![vec![0.0; N_EMBD]; N_LAYER],
-            attn_out: vec![vec![0.0; N_EMBD]; N_LAYER],
-            x_mid:    vec![vec![0.0; N_EMBD]; N_LAYER],
-            xn_mlp:   vec![vec![0.0; N_EMBD]; N_LAYER],
-            mlp_pre:  vec![vec![0.0; MLP_DIM]; N_LAYER],
-            mlp_post: vec![vec![0.0; MLP_DIM]; N_LAYER],
-            x_out:    vec![0.0; N_EMBD],
+            x_embed:  vec![0.0; unsafe { N_EMBD }],
+            x_in:     vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            xn_attn:  vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            q:        vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            k:        vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            v:        vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            attn_out: vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            x_mid:    vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            xn_mlp:   vec![vec![0.0; unsafe { N_EMBD }]; unsafe { N_LAYER }],
+            mlp_pre:  vec![vec![0.0; unsafe { MLP_DIM }]; unsafe { N_LAYER }],
+            mlp_post: vec![vec![0.0; unsafe { MLP_DIM }]; unsafe { N_LAYER }],
+            x_out:    vec![0.0; unsafe { N_EMBD }],
         }
     }
 }
@@ -80,29 +80,29 @@ impl LayerWeights {
 
         // GPT-2 style init: output projections scaled down by 1/sqrt(2*N_LAYER)
         let std_in  = 0.02;
-        let std_out = 0.02 / (2.0 * N_LAYER as f32).sqrt();
+        let std_out = 0.02 / (2.0 * unsafe { N_LAYER } as f32).sqrt();
 
         Self {
-            wq: make_params(N_EMBD * N_EMBD, std_in),
-            wk: make_params(N_EMBD * N_EMBD, std_in),
-            wv: make_params(N_EMBD * N_EMBD, std_in),
-            wo: make_params(N_EMBD * N_EMBD, std_out),
-            fc1: make_params(MLP_DIM * N_EMBD, std_in),
-            fc2: make_params(N_EMBD * MLP_DIM, std_out),
+            wq: make_params(unsafe { N_EMBD } * unsafe { N_EMBD }, std_in),
+            wk: make_params(unsafe { N_EMBD } * unsafe { N_EMBD }, std_in),
+            wv: make_params(unsafe { N_EMBD } * unsafe { N_EMBD }, std_in),
+            wo: make_params(unsafe { N_EMBD } * unsafe { N_EMBD }, std_out),
+            fc1: make_params(unsafe { MLP_DIM } * unsafe { N_EMBD }, std_in),
+            fc2: make_params(unsafe { N_EMBD } * unsafe { MLP_DIM }, std_out),
 
-            d_wq:  zeros(N_EMBD * N_EMBD),
-            d_wk:  zeros(N_EMBD * N_EMBD),
-            d_wv:  zeros(N_EMBD * N_EMBD),
-            d_wo:  zeros(N_EMBD * N_EMBD),
-            d_fc1: zeros(MLP_DIM * N_EMBD),
-            d_fc2: zeros(N_EMBD * MLP_DIM),
+            d_wq:  zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            d_wk:  zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            d_wv:  zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            d_wo:  zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            d_fc1: zeros(unsafe { MLP_DIM } * unsafe { N_EMBD }),
+            d_fc2: zeros(unsafe { N_EMBD } * unsafe { MLP_DIM }),
 
-            m_wq: zeros(N_EMBD * N_EMBD), v_wq: zeros(N_EMBD * N_EMBD),
-            m_wk: zeros(N_EMBD * N_EMBD), v_wk: zeros(N_EMBD * N_EMBD),
-            m_wv: zeros(N_EMBD * N_EMBD), v_wv: zeros(N_EMBD * N_EMBD),
-            m_wo: zeros(N_EMBD * N_EMBD), v_wo: zeros(N_EMBD * N_EMBD),
-            m_fc1: zeros(MLP_DIM * N_EMBD), v_fc1: zeros(MLP_DIM * N_EMBD),
-            m_fc2: zeros(N_EMBD * MLP_DIM), v_fc2: zeros(N_EMBD * MLP_DIM),
+            m_wq: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }), v_wq: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            m_wk: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }), v_wk: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            m_wv: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }), v_wv: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            m_wo: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }), v_wo: zeros(unsafe { N_EMBD } * unsafe { N_EMBD }),
+            m_fc1: zeros(unsafe { MLP_DIM } * unsafe { N_EMBD }), v_fc1: zeros(unsafe { MLP_DIM } * unsafe { N_EMBD }),
+            m_fc2: zeros(unsafe { N_EMBD } * unsafe { MLP_DIM }), v_fc2: zeros(unsafe { N_EMBD } * unsafe { MLP_DIM }),
         }
     }
 }
@@ -127,11 +127,11 @@ pub struct GPTModel {
 
 impl GPTModel {
     pub fn new(vocab_size: usize, rng: &mut Rng) -> Self {
-        let wte_sz  = vocab_size * N_EMBD;
-        let wpe_sz  = BLOCK_SIZE * N_EMBD;
-        let head_sz = vocab_size * N_EMBD;
+        let wte_sz  = vocab_size * unsafe { N_EMBD };
+        let wpe_sz  = unsafe { BLOCK_SIZE } * unsafe { N_EMBD };
+        let head_sz = vocab_size * unsafe { N_EMBD };
 
-        let layers: Vec<LayerWeights> = (0..N_LAYER)
+        let layers: Vec<LayerWeights> = (0..unsafe { N_LAYER })
             .map(|li| LayerWeights::new(rng, li))
             .collect();
 
@@ -170,15 +170,15 @@ pub struct GradientBuffer {
 impl GradientBuffer {
     pub fn new(vocab_size: usize) -> Self {
         Self {
-            d_wte:     vec![0.0; vocab_size * N_EMBD],
-            d_wpe:     vec![0.0; BLOCK_SIZE * N_EMBD],
-            d_lm_head: vec![0.0; vocab_size * N_EMBD],
-            d_wq:  vec![0.0; N_LAYER * N_EMBD * N_EMBD],
-            d_wk:  vec![0.0; N_LAYER * N_EMBD * N_EMBD],
-            d_wv:  vec![0.0; N_LAYER * N_EMBD * N_EMBD],
-            d_wo:  vec![0.0; N_LAYER * N_EMBD * N_EMBD],
-            d_fc1: vec![0.0; N_LAYER * MLP_DIM * N_EMBD],
-            d_fc2: vec![0.0; N_LAYER * N_EMBD * MLP_DIM],
+            d_wte:     vec![0.0; vocab_size * unsafe { N_EMBD }],
+            d_wpe:     vec![0.0; unsafe { BLOCK_SIZE } * unsafe { N_EMBD }],
+            d_lm_head: vec![0.0; vocab_size * unsafe { N_EMBD }],
+            d_wq:  vec![0.0; unsafe { N_LAYER } * unsafe { N_EMBD } * unsafe { N_EMBD }],
+            d_wk:  vec![0.0; unsafe { N_LAYER } * unsafe { N_EMBD } * unsafe { N_EMBD }],
+            d_wv:  vec![0.0; unsafe { N_LAYER } * unsafe { N_EMBD } * unsafe { N_EMBD }],
+            d_wo:  vec![0.0; unsafe { N_LAYER } * unsafe { N_EMBD } * unsafe { N_EMBD }],
+            d_fc1: vec![0.0; unsafe { N_LAYER } * unsafe { MLP_DIM } * unsafe { N_EMBD }],
+            d_fc2: vec![0.0; unsafe { N_LAYER } * unsafe { N_EMBD } * unsafe { MLP_DIM }],
         }
     }
 
@@ -226,22 +226,22 @@ pub struct CandleModel {
 impl CandleModel {
     /// Upload CPU GPTModel weights to Metal Vars.
     pub fn from_gpt(m: &GPTModel, device: &Device) -> CResult<Self> {
-        let layers = (0..N_LAYER).map(|li| {
+        let layers = (0..unsafe { N_LAYER }).map(|li| {
             let l = &m.layers[li];
             Ok(CandleLayer {
-                wq:  make_var(&l.wq,  (N_EMBD, N_EMBD), device)?,
-                wk:  make_var(&l.wk,  (N_EMBD, N_EMBD), device)?,
-                wv:  make_var(&l.wv,  (N_EMBD, N_EMBD), device)?,
-                wo:  make_var(&l.wo,  (N_EMBD, N_EMBD), device)?,
-                fc1: make_var(&l.fc1, (MLP_DIM, N_EMBD), device)?,
-                fc2: make_var(&l.fc2, (N_EMBD, MLP_DIM), device)?,
+                wq:  make_var(&l.wq,  (unsafe { N_EMBD }, unsafe { N_EMBD }), device)?,
+                wk:  make_var(&l.wk,  (unsafe { N_EMBD }, unsafe { N_EMBD }), device)?,
+                wv:  make_var(&l.wv,  (unsafe { N_EMBD }, unsafe { N_EMBD }), device)?,
+                wo:  make_var(&l.wo,  (unsafe { N_EMBD }, unsafe { N_EMBD }), device)?,
+                fc1: make_var(&l.fc1, (unsafe { MLP_DIM }, unsafe { N_EMBD }), device)?,
+                fc2: make_var(&l.fc2, (unsafe { N_EMBD }, unsafe { MLP_DIM }), device)?,
             })
         }).collect::<CResult<Vec<_>>>()?;
 
         Ok(Self {
-            wte:     make_var(&m.wte,     (m.vocab_size, N_EMBD), device)?,
-            wpe:     make_var(&m.wpe,     (BLOCK_SIZE, N_EMBD),   device)?,
-            lm_head: make_var(&m.lm_head, (m.vocab_size, N_EMBD), device)?,
+            wte:     make_var(&m.wte,     (m.vocab_size, unsafe { N_EMBD }), device)?,
+            wpe:     make_var(&m.wpe,     (unsafe { BLOCK_SIZE }, unsafe { N_EMBD }),   device)?,
+            lm_head: make_var(&m.lm_head, (m.vocab_size, unsafe { N_EMBD }), device)?,
             layers,
             vocab_size: m.vocab_size,
             device: device.clone(),
@@ -258,7 +258,7 @@ impl CandleModel {
         gpt.wpe     = var_to_vec(&self.wpe)?;
         gpt.lm_head = var_to_vec(&self.lm_head)?;
 
-        for li in 0..N_LAYER {
+        for li in 0..unsafe { N_LAYER } {
             let cl = &self.layers[li];
             gpt.layers[li].wq  = var_to_vec(&cl.wq)?;
             gpt.layers[li].wk  = var_to_vec(&cl.wk)?;
@@ -274,7 +274,7 @@ impl CandleModel {
     /// wte, wpe, lm_head, then per-layer wq/wk/wv/wo/fc1/fc2.
     /// GpuAdamState is constructed and indexed using this same order.
     pub fn all_vars(&self) -> Vec<Var> {
-        let mut vars = Vec::with_capacity(3 + N_LAYER * 6);
+        let mut vars = Vec::with_capacity(3 + unsafe { N_LAYER } * 6);
         vars.push(self.wte.clone());
         vars.push(self.wpe.clone());
         vars.push(self.lm_head.clone());

@@ -1,0 +1,10 @@
+[model]
+n_embd = 116
+n_head = 4
+n_layer = 3
+block_size = 256
+max_vocab = 8192
+
+[training]
+batch_size = 64
+bpe_vocab_path = "vocab.json"

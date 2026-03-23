@@ -33,20 +33,20 @@ pub fn estimate_loss(
     let mut count = 0usize;
 
     for _ in 0..eval_iters {
-        if data.len() <= BLOCK_SIZE + 1 { continue; }
+        if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
 
         let start = if !valid_starts.is_empty() {
             valid_starts[rng.choice(valid_starts.len())]
         } else {
-            rng.choice(data.len() - BLOCK_SIZE - 1)
+            rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
         };
-        let x = &data[start..start + BLOCK_SIZE];
-        let y = &data[start + 1..start + BLOCK_SIZE + 1];
+        let x = &data[start..start + unsafe { BLOCK_SIZE }];
+        let y = &data[start + 1..start + unsafe { BLOCK_SIZE } + 1];
 
         let logits_seq = if METAL_DEVICE.is_some() {
             forward_metal_logits(x, model)
         } else {
-            let mut kv = (0..N_LAYER).map(|_| Vec::new()).collect();
+            let mut kv = (0..unsafe { N_LAYER }).map(|_| Vec::new()).collect();
             let (logits, _) = forward(x, model, &mut kv, false, None, 0);
             logits
         };
@@ -140,7 +140,7 @@ fn generate_inner(
     };
 
     let mut kv_cache: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-        (0..N_LAYER).map(|_| Vec::new()).collect();
+        (0..unsafe { N_LAYER }).map(|_| Vec::new()).collect();
 
     // Prefill: run the full prompt through forward() once to populate the KV cache.
     let (prefill_logits, _) = forward(&tokens, model, &mut kv_cache, false, None, 0);
@@ -163,11 +163,11 @@ fn generate_inner(
         generated.push(next_token);
         tokens.push(next_token);
 
-        if tokens.len() > BLOCK_SIZE {
+        if tokens.len() > unsafe { BLOCK_SIZE } {
             // Slide the context window: keep last BLOCK_SIZE tokens.
             // Use Metal-accelerated forward for the heavy matmuls — KV cache
             // can't be reused after a slide (absolute position embeddings).
-            tokens = tokens[tokens.len() - BLOCK_SIZE..].to_vec();
+            tokens = tokens[tokens.len() - unsafe { BLOCK_SIZE }..].to_vec();
             let logits = forward_metal_logits(&tokens, model);
             last_logits = logits.into_iter().last().unwrap();
         } else {
@@ -205,9 +205,9 @@ pub fn train(
     println!("=== Starting Training (Multi-Core with Rayon) ===");
     if iter_start > 0 { println!("Resuming from iteration {}", iter_start); }
     println!("Iterations: {} → {}", iter_start, iterations);
-    println!("Batch size: {}", BATCH_SIZE);
+    println!("Batch size: {}", unsafe { BATCH_SIZE });
     println!("Learning rate: {} → {}", max_lr, min_lr);
-    println!("Gradient clipping: {}", GRAD_CLIP);
+    println!("Gradient clipping: {}", unsafe { GRAD_CLIP });
     println!("Cores available: {}", rayon::current_num_threads());
     println!();
 
@@ -231,12 +231,12 @@ pub fn train(
     for iter in iter_start..iterations {
         let iter_start_time = Instant::now();
         // Sample batch indices — from valid_starts if available (no cross-doc windows)
-        let batch_starts: Vec<usize> = (0..BATCH_SIZE)
+        let batch_starts: Vec<usize> = (0..unsafe { BATCH_SIZE })
             .filter_map(|_| {
                 if !valid_starts.is_empty() {
                     Some(valid_starts[rng.choice(valid_starts.len())])
-                } else if data.len() > BLOCK_SIZE + 1 {
-                    Some(rng.choice(data.len() - BLOCK_SIZE - 1))
+                } else if data.len() > unsafe { BLOCK_SIZE } + 1 {
+                    Some(rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1))
                 } else {
                     None
                 }
@@ -251,13 +251,13 @@ pub fn train(
         let results: Vec<(GradientBuffer, f32)> = batch_starts
             .par_iter()
             .map(|&start_idx| {
-                let x_vec: Vec<usize> = data[start_idx..start_idx + BLOCK_SIZE].to_vec();
-                let y_vec: Vec<usize> = data[start_idx + 1..start_idx + BLOCK_SIZE + 1].to_vec();
+                let x_vec: Vec<usize> = data[start_idx..start_idx + unsafe { BLOCK_SIZE }].to_vec();
+                let y_vec: Vec<usize> = data[start_idx + 1..start_idx + unsafe { BLOCK_SIZE } + 1].to_vec();
 
                 let mut thread_rng = Rng::new(start_idx as u64 + iter as u64);
 
                 let mut kv_cache: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-                    (0..N_LAYER).map(|_| Vec::new()).collect();
+                    (0..unsafe { N_LAYER }).map(|_| Vec::new()).collect();
                 let (logits_seq, acts) =
                     forward(&x_vec, model_ref, &mut kv_cache, true, Some(&mut thread_rng), 0);
 
@@ -273,44 +273,44 @@ pub fn train(
                 //
                 // Flat buffers: [seq_len × dim], row-major.
                 // "d_" prefix = gradient of loss w.r.t. that activation.
-                let mut d_x_all    = vec![0.0f32; seq_len * N_EMBD];   // d_x per position
+                let mut d_x_all    = vec![0.0f32; seq_len * unsafe { N_EMBD }];   // d_x per position
                 let mut d_logits_mat = vec![0.0f32; seq_len * model_ref.vocab_size];
 
                 // Per-layer activation matrices for batched d_w
                 // [layer][pos × dim]
-                let mut mat_x_out      = vec![0.0f32; seq_len * N_EMBD];
-                let mut mat_attn_out   = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut mat_xn_attn    = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut mat_xn_mlp     = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut mat_mlp_post   = vec![vec![0.0f32; seq_len * MLP_DIM]; N_LAYER];
+                let mut mat_x_out      = vec![0.0f32; seq_len * unsafe { N_EMBD }];
+                let mut mat_attn_out   = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut mat_xn_attn    = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut mat_xn_mlp     = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut mat_mlp_post   = vec![vec![0.0f32; seq_len * unsafe { MLP_DIM }]; unsafe { N_LAYER }];
 
                 // d_out matrices (filled during position loop, used in SGEMM pass)
                 let mut d_lm_head_d   = vec![0.0f32; seq_len * model_ref.vocab_size];
-                let mut d_wo_d        = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut d_wq_d        = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut d_wk_d        = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut d_wv_d        = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
-                let mut d_fc1_d       = vec![vec![0.0f32; seq_len * MLP_DIM]; N_LAYER];
-                let mut d_fc2_d       = vec![vec![0.0f32; seq_len * N_EMBD]; N_LAYER];
+                let mut d_wo_d        = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut d_wq_d        = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut d_wk_d        = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut d_wv_d        = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
+                let mut d_fc1_d       = vec![vec![0.0f32; seq_len * unsafe { MLP_DIM }]; unsafe { N_LAYER }];
+                let mut d_fc2_d       = vec![vec![0.0f32; seq_len * unsafe { N_EMBD }]; unsafe { N_LAYER }];
 
                 // Populate activation matrices from saved acts
                 for pos in 0..seq_len {
-                    mat_x_out[pos * N_EMBD .. (pos+1)*N_EMBD]
+                    mat_x_out[pos * unsafe { N_EMBD } .. (pos+1)*unsafe { N_EMBD }]
                         .copy_from_slice(&acts[pos].x_out);
-                    for li in 0..N_LAYER {
-                        mat_attn_out[li][pos*N_EMBD..(pos+1)*N_EMBD]
+                    for li in 0..unsafe { N_LAYER } {
+                        mat_attn_out[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }]
                             .copy_from_slice(&acts[pos].attn_out[li]);
-                        mat_xn_attn[li][pos*N_EMBD..(pos+1)*N_EMBD]
+                        mat_xn_attn[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }]
                             .copy_from_slice(&acts[pos].xn_attn[li]);
-                        mat_xn_mlp[li][pos*N_EMBD..(pos+1)*N_EMBD]
+                        mat_xn_mlp[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }]
                             .copy_from_slice(&acts[pos].xn_mlp[li]);
-                        mat_mlp_post[li][pos*MLP_DIM..(pos+1)*MLP_DIM]
+                        mat_mlp_post[li][pos*unsafe { MLP_DIM }..(pos+1)*unsafe { MLP_DIM }]
                             .copy_from_slice(&acts[pos].mlp_post[li]);
                     }
                 }
 
                 let mut probs    = vec![0.0f32; model_ref.vocab_size];
-                let mut d_x_out  = vec![0.0f32; N_EMBD];
+                let mut d_x_out  = vec![0.0f32; unsafe { N_EMBD }];
 
                 for pos in 0..seq_len {
                     softmax_fwd(&logits_seq[pos], model_ref.vocab_size, &mut probs, 1.0);
@@ -328,174 +328,173 @@ pub fn train(
                         let dl_slice = &d_logits_mat[pos * model_ref.vocab_size
                                                     .. (pos+1) * model_ref.vocab_size];
                         // d_x_out = lm_head^T · d_logits  (sgemv, no d_w here)
-                        linear_bwd_dx_only(
-                            dl_slice, &model_ref.lm_head,
-                            model_ref.vocab_size, N_EMBD, &mut d_x_out,
-                        );
-                        // store d_logits for SGEMM pass
-                        d_lm_head_d[pos * model_ref.vocab_size
-                                    .. (pos+1) * model_ref.vocab_size]
-                            .copy_from_slice(dl_slice);
-                    }
-
-                    let mut d_x = d_x_out.clone();
-
-                    for li in (0..N_LAYER).rev() {
-                        // ----- MLP backward (d_x only) -----
-                        let mut d_h2 = vec![0.0f32; MLP_DIM];
-                        linear_bwd_dx_only(
-                            &d_x, &model_ref.layers[li].fc2,
-                            N_EMBD, MLP_DIM, &mut d_h2,
-                        );
-                        // store d_fc2_d for SGEMM
-                        d_fc2_d[li][pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_x);
-
-                        let mut d_h1 = vec![0.0f32; MLP_DIM];
-                        for i in 0..MLP_DIM {
-                            if acts[pos].mlp_pre[li][i] > 0.0 {
-                                d_h1[i] = d_h2[i] * 2.0 * acts[pos].mlp_pre[li][i];
-                            }
-                        }
-                        // store d_fc1_d for SGEMM
-                        d_fc1_d[li][pos*MLP_DIM..(pos+1)*MLP_DIM].copy_from_slice(&d_h1);
-
-                        let mut d_xn_mlp = vec![0.0f32; N_EMBD];
-                        linear_bwd_dx_only(
-                            &d_h1, &model_ref.layers[li].fc1,
-                            MLP_DIM, N_EMBD, &mut d_xn_mlp,
-                        );
-
-                        let mut d_x_mid = vec![0.0f32; N_EMBD];
-                        for i in 0..N_EMBD { d_x_mid[i] = d_xn_mlp[i] + d_x[i]; }
-
-                        // ----- Attention backward (d_x only) -----
-                        let mut d_attn_out = vec![0.0f32; N_EMBD];
-                        linear_bwd_dx_only(
-                            &d_x_mid, &model_ref.layers[li].wo,
-                            N_EMBD, N_EMBD, &mut d_attn_out,
-                        );
-                        // store d_wo_d for SGEMM
-                        d_wo_d[li][pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_x_mid);
-
-                        let mut d_q = vec![0.0f32; N_EMBD];
-                        let mut d_k = vec![0.0f32; N_EMBD];
-                        let mut d_v = vec![0.0f32; N_EMBD];
-                        let scale = 1.0 / (HEAD_DIM as f32).sqrt();
-
-                        for h in 0..N_HEAD {
-                            let hs = h * HEAD_DIM;
-                            let mut scores = vec![0.0f32; pos + 1];
-                            for t in 0..=pos {
-                                let dot: f32 = (0..HEAD_DIM)
-                                    .map(|j| acts[pos].q[li][hs+j] * kv_cache[li][t].0[hs+j])
-                                    .sum();
-                                scores[t] = dot * scale;
-                            }
-                            let mut attn_weights = vec![0.0f32; pos + 1];
-                            softmax_fwd(&scores, pos + 1, &mut attn_weights, 1.0);
-
-                            let mut d_attn_weights = vec![0.0f32; pos + 1];
-                            for t in 0..=pos {
-                                for j in 0..HEAD_DIM {
-                                    d_attn_weights[t] +=
-                                        d_attn_out[hs+j] * kv_cache[li][t].1[hs+j];
-                                    if t == pos {
-                                        d_v[hs+j] += attn_weights[t] * d_attn_out[hs+j];
-                                    }
-                                }
-                            }
-                            let mut d_scores = vec![0.0f32; pos + 1];
-                            softmax_bwd(&attn_weights, &d_attn_weights, pos+1, &mut d_scores);
-                            for t in 0..=pos {
-                                for j in 0..HEAD_DIM {
-                                    d_q[hs+j] += d_scores[t] * scale * kv_cache[li][t].0[hs+j];
-                                    if t == pos {
-                                        d_k[hs+j] += d_scores[t] * scale * acts[pos].q[li][hs+j];
-                                    }
-                                }
-                            }
-                        }
-
-                        // d_x through Q/K/V projections (d_w via SGEMM later)
-                        let mut d_xn_q = vec![0.0f32; N_EMBD];
-                        let mut d_xn_k = vec![0.0f32; N_EMBD];
-                        let mut d_xn_v = vec![0.0f32; N_EMBD];
-                        linear_bwd_dx_only(&d_q, &model_ref.layers[li].wq,
-                            N_EMBD, N_EMBD, &mut d_xn_q);
-                        linear_bwd_dx_only(&d_k, &model_ref.layers[li].wk,
-                            N_EMBD, N_EMBD, &mut d_xn_k);
-                        linear_bwd_dx_only(&d_v, &model_ref.layers[li].wv,
-                            N_EMBD, N_EMBD, &mut d_xn_v);
-                        // store d_q/k/v for SGEMM
-                        d_wq_d[li][pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_q);
-                        d_wk_d[li][pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_k);
-                        d_wv_d[li][pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_v);
-
-                        for i in 0..N_EMBD {
-                            d_x[i] = d_xn_q[i] + d_xn_k[i] + d_xn_v[i] + d_x_mid[i];
-                        }
-                    }
-
-                    // Embedding gradients
-                    for i in 0..N_EMBD {
-                        local_grads.d_wte[x_vec[pos] * N_EMBD + i] += d_x[i];
-                        local_grads.d_wpe[pos * N_EMBD + i]          += d_x[i];
-                    }
-                    d_x_all[pos*N_EMBD..(pos+1)*N_EMBD].copy_from_slice(&d_x);
-                }
-
-                // ── Batched d_w pass via SGEMM ────────────────────────────
-                // Each weight gradient = D^T · X  (one sgemm per matrix).
-                // At seq_len=64 this replaces 64 sger calls with 1 sgemm,
-                // letting AMX/SIMD process the full sequence in parallel.
-
-                // lm_head: d_w += d_logits^T · x_out
-                linear_bwd_dw_batched(
-                    &d_lm_head_d, &mat_x_out,
-                    seq_len, model_ref.vocab_size, N_EMBD,
-                    &mut local_grads.d_lm_head,
-                );
-
-                for li in 0..N_LAYER {
-                    let sq   = N_EMBD * N_EMBD;
-                    let fc1s = MLP_DIM * N_EMBD;
-                    let fc2s = N_EMBD * MLP_DIM;
-
-                    // wo: d_w += d_wo_d^T · attn_out
-                    linear_bwd_dw_batched(
-                        &d_wo_d[li], &mat_attn_out[li],
-                        seq_len, N_EMBD, N_EMBD,
-                        &mut local_grads.d_wo[li*sq..(li+1)*sq],
-                    );
-                    // wq, wk, wv: d_w += d_q/k/v^T · xn_attn
-                    linear_bwd_dw_batched(
-                        &d_wq_d[li], &mat_xn_attn[li],
-                        seq_len, N_EMBD, N_EMBD,
-                        &mut local_grads.d_wq[li*sq..(li+1)*sq],
-                    );
-                    linear_bwd_dw_batched(
-                        &d_wk_d[li], &mat_xn_attn[li],
-                        seq_len, N_EMBD, N_EMBD,
-                        &mut local_grads.d_wk[li*sq..(li+1)*sq],
-                    );
-                    linear_bwd_dw_batched(
-                        &d_wv_d[li], &mat_xn_attn[li],
-                        seq_len, N_EMBD, N_EMBD,
-                        &mut local_grads.d_wv[li*sq..(li+1)*sq],
-                    );
-                    // fc1: d_w += d_fc1_d^T · xn_mlp
-                    linear_bwd_dw_batched(
-                        &d_fc1_d[li], &mat_xn_mlp[li],
-                        seq_len, MLP_DIM, N_EMBD,
-                        &mut local_grads.d_fc1[li*fc1s..(li+1)*fc1s],
-                    );
-                    // fc2: d_w += d_fc2_d^T · mlp_post
-                    linear_bwd_dw_batched(
-                        &d_fc2_d[li], &mat_mlp_post[li],
-                        seq_len, N_EMBD, MLP_DIM,
-                        &mut local_grads.d_fc2[li*fc2s..(li+1)*fc2s],
-                    );
-                }
+                                                linear_bwd_dx_only(
+                                                    dl_slice, &model_ref.lm_head,
+                                                    model_ref.vocab_size, unsafe { N_EMBD }, &mut d_x_out,
+                                                );
+                                                // store d_logits for SGEMM pass
+                                                d_lm_head_d[pos * model_ref.vocab_size
+                                                            .. (pos+1) * model_ref.vocab_size]
+                                                    .copy_from_slice(dl_slice);
+                                            }
+                        
+                                            let mut d_x = d_x_out.clone();
+                        
+                                            for li in (0..unsafe { N_LAYER }).rev() {
+                                                // ----- MLP backward (d_x only) -----
+                                                let mut d_h2 = vec![0.0f32; unsafe { MLP_DIM }];
+                                                linear_bwd_dx_only(
+                                                    &d_x, &model_ref.layers[li].fc2,
+                                                    unsafe { N_EMBD }, unsafe { MLP_DIM }, &mut d_h2,
+                                                );
+                                                // store d_fc2_d for SGEMM
+                                                d_fc2_d[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_x);
+                        
+                                                let mut d_h1 = vec![0.0f32; unsafe { MLP_DIM }];
+                                                for i in 0..unsafe { MLP_DIM } {
+                                                    if acts[pos].mlp_pre[li][i] > 0.0 {
+                                                        d_h1[i] = d_h2[i] * 2.0 * acts[pos].mlp_pre[li][i];
+                                                    }
+                                                }
+                                                // store d_fc1_d for SGEMM
+                                                d_fc1_d[li][pos*unsafe { MLP_DIM }..(pos+1)*unsafe { MLP_DIM }].copy_from_slice(&d_h1);
+                        
+                                                let mut d_xn_mlp = vec![0.0f32; unsafe { N_EMBD }];
+                                                linear_bwd_dx_only(
+                                                    &d_h1, &model_ref.layers[li].fc1,
+                                                    unsafe { MLP_DIM }, unsafe { N_EMBD }, &mut d_xn_mlp,
+                                                );
+                        
+                                                let mut d_x_mid = vec![0.0f32; unsafe { N_EMBD }];
+                                                for i in 0..unsafe { N_EMBD } { d_x_mid[i] = d_xn_mlp[i] + d_x[i]; }
+                        
+                                                // ----- Attention backward (d_x only) -----
+                                                let mut d_attn_out = vec![0.0f32; unsafe { N_EMBD }];
+                                                linear_bwd_dx_only(
+                                                    &d_x_mid, &model_ref.layers[li].wo,
+                                                    unsafe { N_EMBD }, unsafe { N_EMBD }, &mut d_attn_out,
+                                                );
+                                                // store d_wo_d for SGEMM
+                                                d_wo_d[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_x_mid);
+                        
+                                                let mut d_q = vec![0.0f32; unsafe { N_EMBD }];
+                                                let mut d_k = vec![0.0f32; unsafe { N_EMBD }];
+                                                let mut d_v = vec![0.0f32; unsafe { N_EMBD }];
+                                                let scale = 1.0 / (unsafe { HEAD_DIM } as f32).sqrt();
+                        
+                                                for h in 0..unsafe { N_HEAD } {
+                                                    let hs = h * unsafe { HEAD_DIM };
+                                                    let mut scores = vec![0.0f32; pos + 1];
+                                                    for t in 0..=pos {
+                                                        let dot: f32 = (0..unsafe { HEAD_DIM })
+                                                            .map(|j| acts[pos].q[li][hs+j] * kv_cache[li][t].0[hs+j])
+                                                            .sum();
+                                                        scores[t] = dot * scale;
+                                                    }
+                                                    let mut attn_weights = vec![0.0f32; pos + 1];
+                                                    softmax_fwd(&scores, pos + 1, &mut attn_weights, 1.0);
+                        
+                                                    let mut d_attn_weights = vec![0.0f32; pos + 1];
+                                                    for t in 0..=pos {
+                                                        for j in 0..unsafe { HEAD_DIM } {
+                                                            d_attn_weights[t] +=
+                                                                d_attn_out[hs+j] * kv_cache[li][t].1[hs+j];
+                                                            if t == pos {
+                                                                d_v[hs+j] += attn_weights[t] * d_attn_out[hs+j];
+                                                            }
+                                                        }
+                                                    }
+                                                    let mut d_scores = vec![0.0f32; pos + 1];
+                                                    softmax_bwd(&attn_weights, &d_attn_weights, pos+1, &mut d_scores);
+                                                    for t in 0..=pos {
+                                                        for j in 0..unsafe { HEAD_DIM } {
+                                                            d_q[hs+j] += d_scores[t] * scale * kv_cache[li][t].0[hs+j];
+                                                            if t == pos {
+                                                                d_k[hs+j] += d_scores[t] * scale * acts[pos].q[li][hs+j];
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                        
+                                                // d_x through Q/K/V projections (d_w via SGEMM later)
+                                                let mut d_xn_q = vec![0.0f32; unsafe { N_EMBD }];
+                                                let mut d_xn_k = vec![0.0f32; unsafe { N_EMBD }];
+                                                let mut d_xn_v = vec![0.0f32; unsafe { N_EMBD }];
+                                                linear_bwd_dx_only(&d_q, &model_ref.layers[li].wq,
+                                                    unsafe { N_EMBD }, unsafe { N_EMBD }, &mut d_xn_q);
+                                                linear_bwd_dx_only(&d_k, &model_ref.layers[li].wk,
+                                                    unsafe { N_EMBD }, unsafe { N_EMBD }, &mut d_xn_k);
+                                                linear_bwd_dx_only(&d_v, &model_ref.layers[li].wv,
+                                                    unsafe { N_EMBD }, unsafe { N_EMBD }, &mut d_xn_v);
+                                                // store d_q/k/v for SGEMM
+                                                d_wq_d[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_q);
+                                                d_wk_d[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_k);
+                                                d_wv_d[li][pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_v);
+                        
+                                                for i in 0..unsafe { N_EMBD } {
+                                                    d_x[i] = d_xn_q[i] + d_xn_k[i] + d_xn_v[i] + d_x_mid[i];
+                                                }
+                                            }
+                        
+                                            // Embedding gradients
+                                            for i in 0..unsafe { N_EMBD } {
+                                                local_grads.d_wte[x_vec[pos] * unsafe { N_EMBD } + i] += d_x[i];
+                                                local_grads.d_wpe[pos * unsafe { N_EMBD } + i]          += d_x[i];
+                                            }
+                                            d_x_all[pos*unsafe { N_EMBD }..(pos+1)*unsafe { N_EMBD }].copy_from_slice(&d_x);
+                                        }
+                        
+                                        // ── Batched d_w pass via SGEMM ────────────────────────────
+                                        // Each weight gradient = D^T · X  (one sgemm per matrix).
+                                        // At seq_len=64 this replaces 64 sger calls with 1 sgemm,
+                                        // letting AMX/SIMD process the full sequence in parallel.
+                        
+                                        // lm_head: d_w += d_logits^T · x_out
+                                        linear_bwd_dw_batched(
+                                            &d_lm_head_d, &mat_x_out,
+                                            seq_len, model_ref.vocab_size, unsafe { N_EMBD },
+                                            &mut local_grads.d_lm_head,
+                                        );
+                        
+                                        for li in 0..unsafe { N_LAYER } {
+                                            let sq   = unsafe { N_EMBD } * unsafe { N_EMBD };
+                                            let fc1s = unsafe { MLP_DIM } * unsafe { N_EMBD };
+                                            let fc2s = unsafe { N_EMBD } * unsafe { MLP_DIM };
+                        
+                                            // wo: d_w += d_wo_d^T · attn_out
+                                            linear_bwd_dw_batched(
+                                                &d_wo_d[li], &mat_attn_out[li],
+                                                seq_len, unsafe { N_EMBD }, unsafe { N_EMBD },
+                                                &mut local_grads.d_wo[li*sq..(li+1)*sq],
+                                            );
+                                            // wq, wk, wv: d_w += d_q/k/v^T · xn_attn
+                                            linear_bwd_dw_batched(
+                                                &d_wq_d[li], &mat_xn_attn[li],
+                                                seq_len, unsafe { N_EMBD }, unsafe { N_EMBD },
+                                                &mut local_grads.d_wq[li*sq..(li+1)*sq],
+                                            );
+                                            linear_bwd_dw_batched(
+                                                &d_wk_d[li], &mat_xn_attn[li],
+                                                seq_len, unsafe { N_EMBD }, unsafe { N_EMBD },
+                                                &mut local_grads.d_wk[li*sq..(li+1)*sq],
+                                            );
+                                            linear_bwd_dw_batched(
+                                                &d_wv_d[li], &mat_xn_attn[li],
+                                                seq_len, unsafe { N_EMBD }, unsafe { N_EMBD },
+                                                &mut local_grads.d_wv[li*sq..(li+1)*sq],
+                                            );
+                                            // fc1: d_w += d_fc1_d^T · xn_mlp
+                                            linear_bwd_dw_batched(
+                                                &d_fc1_d[li], &mat_xn_mlp[li],
+                                                seq_len, unsafe { MLP_DIM }, unsafe { N_EMBD },
+                                                &mut local_grads.d_fc1[li*fc1s..(li+1)*fc1s],
+                                            );
+                                            // fc2: d_w += d_fc2_d^T · mlp_post
+                                            linear_bwd_dw_batched(
+                                                &d_fc2_d[li], &mat_mlp_post[li],
+                                                seq_len, unsafe { N_EMBD }, unsafe { MLP_DIM },
+                                                &mut local_grads.d_fc2[li*fc2s..(li+1)*fc2s],
+                                            );                }
 
                 (local_grads, total_loss / seq_len as f32)
             })
@@ -510,10 +509,10 @@ pub fn train(
             model.d_wte.iter_mut().zip(grads.d_wte.iter()).for_each(|(a, b)| *a += b);
             model.d_wpe.iter_mut().zip(grads.d_wpe.iter()).for_each(|(a, b)| *a += b);
             model.d_lm_head.iter_mut().zip(grads.d_lm_head.iter()).for_each(|(a, b)| *a += b);
-            for li in 0..N_LAYER {
-                let sq   = N_EMBD * N_EMBD;
-                let fc1s = MLP_DIM * N_EMBD;
-                let fc2s = N_EMBD * MLP_DIM;
+            for li in 0..unsafe { N_LAYER } {
+                let sq   = unsafe { N_EMBD } * unsafe { N_EMBD };
+                let fc1s = unsafe { MLP_DIM } * unsafe { N_EMBD };
+                let fc2s = unsafe { N_EMBD } * unsafe { MLP_DIM };
                 model.layers[li].d_wq.iter_mut().zip(grads.d_wq[li*sq..(li+1)*sq].iter()).for_each(|(a,b)| *a+=b);
                 model.layers[li].d_wk.iter_mut().zip(grads.d_wk[li*sq..(li+1)*sq].iter()).for_each(|(a,b)| *a+=b);
                 model.layers[li].d_wv.iter_mut().zip(grads.d_wv[li*sq..(li+1)*sq].iter()).for_each(|(a,b)| *a+=b);
@@ -538,16 +537,16 @@ pub fn train(
         };
 
         // Gradient clipping
-        clip_gradients(&mut model.d_wte, GRAD_CLIP);
-        clip_gradients(&mut model.d_wpe, GRAD_CLIP);
-        clip_gradients(&mut model.d_lm_head, GRAD_CLIP);
-        for li in 0..N_LAYER {
-            clip_gradients(&mut model.layers[li].d_wq,  GRAD_CLIP);
-            clip_gradients(&mut model.layers[li].d_wk,  GRAD_CLIP);
-            clip_gradients(&mut model.layers[li].d_wv,  GRAD_CLIP);
-            clip_gradients(&mut model.layers[li].d_wo,  GRAD_CLIP);
-            clip_gradients(&mut model.layers[li].d_fc1, GRAD_CLIP);
-            clip_gradients(&mut model.layers[li].d_fc2, GRAD_CLIP);
+        clip_gradients(&mut model.d_wte, unsafe { GRAD_CLIP });
+        clip_gradients(&mut model.d_wpe, unsafe { GRAD_CLIP });
+        clip_gradients(&mut model.d_lm_head, unsafe { GRAD_CLIP });
+        for li in 0..unsafe { N_LAYER } {
+            clip_gradients(&mut model.layers[li].d_wq,  unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_wk,  unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_wv,  unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_wo,  unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_fc1, unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_fc2, unsafe { GRAD_CLIP });
         }
 
         // Adam optimizer update
@@ -555,7 +554,7 @@ pub fn train(
         adam_step(&mut model.wpe, &model.d_wpe, &mut model.m_wpe, &mut model.v_wpe, step, lr);
         adam_step(&mut model.lm_head, &model.d_lm_head, &mut model.m_lm_head, &mut model.v_lm_head, step, lr);
 
-        for li in 0..N_LAYER {
+        for li in 0..unsafe { N_LAYER } {
             // SAFETY: $w, $dw, $mw, $vw are distinct non-overlapping fields.
             let layer = &mut model.layers[li];
             macro_rules! layer_adam {
@@ -597,20 +596,20 @@ pub fn train(
 
                 // ReduceLROnPlateau: reduce max_lr on patience exhaustion,
                 // hard-stop only after MAX_LR_REDUCTIONS consecutive reductions.
-                if EARLY_STOP_PATIENCE > 0 {
+                if unsafe { EARLY_STOP_PATIENCE } > 0 {
                     if val_loss < best_val_loss {
                         best_val_loss  = val_loss;
                         patience_count = 0;
                     } else {
                         patience_count += 1;
-                        if patience_count >= EARLY_STOP_PATIENCE {
-                            if lr_reductions < MAX_LR_REDUCTIONS {
-                                current_max_lr = (current_max_lr * LR_REDUCTION_FACTOR).max(min_lr);
+                        if patience_count >= unsafe { EARLY_STOP_PATIENCE } {
+                            if lr_reductions < unsafe { MAX_LR_REDUCTIONS } {
+                                current_max_lr = (current_max_lr * unsafe { LR_REDUCTION_FACTOR }).max(min_lr);
                                 lr_reductions += 1;
                                 patience_count = 0;
                                 println!(
                                     "  → Plateau: LR reduced to {:.2e} (reduction {}/{})",
-                                    current_max_lr, lr_reductions, MAX_LR_REDUCTIONS
+                                    current_max_lr, lr_reductions, unsafe { MAX_LR_REDUCTIONS }
                                 );
                             } else {
                                 stop_early = true;
@@ -619,8 +618,8 @@ pub fn train(
                     }
                 }
 
-                let patience_str = if EARLY_STOP_PATIENCE > 0 {
-                    format!(" | Pat: {}/{} LRx{}", patience_count, EARLY_STOP_PATIENCE, lr_reductions)
+                let patience_str = if unsafe { EARLY_STOP_PATIENCE } > 0 {
+                    format!(" | Pat: {}/{} LRx{}", patience_count, unsafe { EARLY_STOP_PATIENCE }, lr_reductions)
                 } else {
                     String::new()
                 };
@@ -647,7 +646,7 @@ pub fn train(
                 let avg_ms  = if iter_count > 0 { total_iter_ms as f32 / iter_count as f32 } else { 0.0 };
                 println!();
                 println!("Early stopping: val loss hasn't improved for {} eval intervals ({} iters).",
-                    EARLY_STOP_PATIENCE, EARLY_STOP_PATIENCE * EVAL_INTERVAL);
+                    unsafe { EARLY_STOP_PATIENCE }, unsafe { EARLY_STOP_PATIENCE } * unsafe { EVAL_INTERVAL });
                 println!("Best val loss was {:.4} @{}. Saving checkpoint and stopping.", best_loss, best_iter);
                 println!("Total time: {:.1}s | Avg: {:.0}ms/iter", elapsed, avg_ms);
                 flush_checkpoint(&format!("{}.bin", checkpoint_prefix), &ckpt_buf)
@@ -723,7 +722,7 @@ pub fn train_candle(
     println!("=== Starting Training (Metal GPU via Candle) ===");
     if iter_start > 0 { println!("Resuming from iteration {}", iter_start); }
     println!("Iterations: {} → {}", iter_start, iterations);
-    println!("Batch size: {} × {} accum steps = {} effective", BATCH_SIZE, GRAD_ACCUM_STEPS, BATCH_SIZE * GRAD_ACCUM_STEPS);
+    println!("Batch size: {} × {} accum steps = {} effective", unsafe { BATCH_SIZE }, unsafe { GRAD_ACCUM_STEPS }, unsafe { BATCH_SIZE } * unsafe { GRAD_ACCUM_STEPS });
     println!("Learning rate: {} → {}", max_lr, min_lr);
     println!();
 
@@ -752,27 +751,27 @@ pub fn train_candle(
         let mut batch_loss_sum = 0.0f32;
         let mut accum_count = 0usize;
 
-        for _ in 0..GRAD_ACCUM_STEPS {
-            let mut tok_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE * BLOCK_SIZE);
-            let mut tgt_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE * BLOCK_SIZE);
-            for _ in 0..BATCH_SIZE {
-                if data.len() <= BLOCK_SIZE + 1 { continue; }
+        for _ in 0..unsafe { GRAD_ACCUM_STEPS } {
+            let mut tok_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
+            let mut tgt_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
+            for _ in 0..unsafe { BATCH_SIZE } {
+                if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
                 let start = if !valid_starts.is_empty() {
                     valid_starts[rng.choice(valid_starts.len())]
                 } else {
-                    rng.choice(data.len() - BLOCK_SIZE - 1)
+                    rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
                 };
-                for t in 0..BLOCK_SIZE {
+                for t in 0..unsafe { BLOCK_SIZE } {
                     tok_data.push(data[start + t] as u32);
                     tgt_data.push(data[start + t + 1] as u32);
                 }
             }
-            let actual_batch = tok_data.len() / BLOCK_SIZE;
+            let actual_batch = tok_data.len() / unsafe { BLOCK_SIZE };
             if actual_batch == 0 { continue; }
 
-            let tokens  = Tensor::from_vec(tok_data, (actual_batch, BLOCK_SIZE), &device)
+            let tokens  = Tensor::from_vec(tok_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
                 .unwrap_or_else(|e| panic!("token tensor: {}", e));
-            let targets = Tensor::from_vec(tgt_data, (actual_batch, BLOCK_SIZE), &device)
+            let targets = Tensor::from_vec(tgt_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
                 .unwrap_or_else(|e| panic!("target tensor: {}", e));
 
             let loss = forward_candle_train(&tokens, &targets, model, true)
@@ -839,20 +838,20 @@ pub fn train_candle(
                 // ReduceLROnPlateau: reduce max_lr on patience exhaustion,
                 // hard-stop only after MAX_LR_REDUCTIONS consecutive reductions.
                 new_best = val_loss < best_val_loss;
-                if EARLY_STOP_PATIENCE > 0 {
+                if unsafe { EARLY_STOP_PATIENCE } > 0 {
                     if new_best {
                         best_val_loss  = val_loss;
                         patience_count = 0;
                     } else {
                         patience_count += 1;
-                        if patience_count >= EARLY_STOP_PATIENCE {
-                            if lr_reductions < MAX_LR_REDUCTIONS {
-                                current_max_lr = (current_max_lr * LR_REDUCTION_FACTOR).max(min_lr);
+                        if patience_count >= unsafe { EARLY_STOP_PATIENCE } {
+                            if lr_reductions < unsafe { MAX_LR_REDUCTIONS } {
+                                current_max_lr = (current_max_lr * unsafe { LR_REDUCTION_FACTOR }).max(min_lr);
                                 lr_reductions += 1;
                                 patience_count = 0;
                                 println!(
                                     "  → Plateau: LR reduced to {:.2e} (reduction {}/{})",
-                                    current_max_lr, lr_reductions, MAX_LR_REDUCTIONS
+                                    current_max_lr, lr_reductions, unsafe { MAX_LR_REDUCTIONS }
                                 );
                             } else {
                                 stop_early = true;
@@ -861,8 +860,8 @@ pub fn train_candle(
                     }
                 }
 
-                let patience_str = if EARLY_STOP_PATIENCE > 0 {
-                    format!(" | Pat: {}/{} LRx{}", patience_count, EARLY_STOP_PATIENCE, lr_reductions)
+                let patience_str = if unsafe { EARLY_STOP_PATIENCE } > 0 {
+                    format!(" | Pat: {}/{} LRx{}", patience_count, unsafe { EARLY_STOP_PATIENCE }, lr_reductions)
                 } else {
                     String::new()
                 };
@@ -893,7 +892,7 @@ pub fn train_candle(
                 let avg_ms  = if iter_count > 0 { total_iter_ms as f32 / iter_count as f32 } else { 0.0 };
                 println!();
                 println!("Early stopping: val loss hasn't improved for {} eval intervals ({} iters).",
-                    EARLY_STOP_PATIENCE, EARLY_STOP_PATIENCE * EVAL_INTERVAL);
+                    unsafe { EARLY_STOP_PATIENCE }, unsafe { EARLY_STOP_PATIENCE } * unsafe { EVAL_INTERVAL });
                 println!("Best val loss was {:.4}. Saving checkpoint and stopping.", best_val_loss);
                 println!("Total time: {:.1}s | Avg: {:.0}ms/iter", elapsed, avg_ms);
                 flush_checkpoint(&format!("{}.bin", checkpoint_prefix), &ckpt_buf)

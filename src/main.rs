@@ -43,7 +43,7 @@ fn load_training_data(path: &str) -> std::io::Result<String> {
 ///   (avoids building a 200-300MB Vec that is essentially [0..N])
 fn build_valid_starts(data: &[usize]) -> Vec<usize> {
     use crate::config::BLOCK_SIZE;
-    if data.len() <= BLOCK_SIZE + 1 {
+    if data.len() <= unsafe { BLOCK_SIZE } + 1 {
         return Vec::new();
     }
     let eos_id = 1usize; // <|eos|> is always vocab index 1
@@ -56,15 +56,15 @@ fn build_valid_starts(data: &[usize]) -> Vec<usize> {
     }
     // Each boundary excludes at most BLOCK_SIZE windows. If the total excluded
     // fraction is <1%, the memory cost of storing valid_starts outweighs the benefit.
-    let max_excluded = eos_positions.len() * BLOCK_SIZE;
-    let total_windows = data.len() - BLOCK_SIZE - 1;
+    let max_excluded = eos_positions.len() * unsafe { BLOCK_SIZE };
+    let total_windows = data.len() - unsafe { BLOCK_SIZE } - 1;
     if max_excluded * 100 < total_windows {
         return Vec::new(); // <1% exclusion — not worth 200MB+ allocation
     }
     (0..total_windows)
         .filter(|&s| {
             let lo = eos_positions.partition_point(|&p| p < s);
-            lo >= eos_positions.len() || eos_positions[lo] >= s + BLOCK_SIZE
+            lo >= eos_positions.len() || eos_positions[lo] >= s + unsafe { BLOCK_SIZE }
         })
         .collect()
 }
@@ -74,6 +74,41 @@ use log::{debug, info, warn, error};
 fn main() -> std::io::Result<()> {
     env_logger::init();
     debug!("Logger initialized.");
+
+    // Load RandyGPT.toml config
+    let randy_gpt_config = config::load_config();
+
+    unsafe {
+        // Apply TOML overrides, or use default feature values
+        if let Some(n_embd) = randy_gpt_config.n_embd {
+            N_EMBD = n_embd;
+        }
+        if let Some(n_head) = randy_gpt_config.n_head {
+            N_HEAD = n_head;
+        }
+        if let Some(n_layer) = randy_gpt_config.n_layer {
+            N_LAYER = n_layer;
+        }
+        if let Some(block_size) = randy_gpt_config.block_size {
+            BLOCK_SIZE = block_size;
+        }
+        if let Some(max_vocab) = randy_gpt_config.max_vocab {
+            MAX_VOCAB = max_vocab;
+        }
+        if let Some(batch_size) = randy_gpt_config.batch_size {
+            BATCH_SIZE = batch_size;
+        }
+        if let Some(bpe_vocab_path) = randy_gpt_config.bpe_vocab_path {
+            BPE_VOCAB_PATH = bpe_vocab_path;
+        } else if BPE_VOCAB_PATH.is_empty() {
+            BPE_VOCAB_PATH = "vocab.json".to_string(); // Default if not in TOML and not already set
+        }
+
+        // Re-calculate derived constants after potential overrides
+        HEAD_DIM = N_EMBD / N_HEAD;
+        MLP_DIM = 4 * N_EMBD;
+    }
+
     ctrlc_tiny::init_ctrlc().expect("Error setting Ctrl-C handler");
     // ── CLI arguments ─────────────────────────────────────────────────
     // Usage: randygpt [--iters N] [--resume [path]]
@@ -90,7 +125,7 @@ fn main() -> std::io::Result<()> {
     let mut serve_addr:      Option<String> = None;
     let mut api_key:         Option<String> = None;
     let mut train_file:              String = "train.txt".to_string();
-    let mut vocab_path:              String = BPE_VOCAB_PATH.to_string();
+    let mut vocab_path:              String = unsafe { BPE_VOCAB_PATH.clone() }; // Initialize from config::BPE_VOCAB_PATH
     let mut checkpoint_prefix_arg:   Option<String> = None;
     let mut fine_tune:               bool = false;
     let mut gen_max_tokens:         usize = 200;
@@ -136,10 +171,10 @@ fn main() -> std::io::Result<()> {
                 // --bpe 3000   → use custom target vocab size
                 if i + 1 < args.len() && !args[i + 1].starts_with("--") {
                     i += 1;
-                    bpe_vocab_size = Some(args[i].parse().unwrap_or(BPE_VOCAB_SIZE));
+                    bpe_vocab_size = Some(args[i].parse().unwrap_or(unsafe { BPE_VOCAB_SIZE }));
                     debug!("Parsed --bpe with custom size: {:?}", bpe_vocab_size);
                 } else {
-                    bpe_vocab_size = Some(BPE_VOCAB_SIZE);
+                    bpe_vocab_size = Some(unsafe { BPE_VOCAB_SIZE });
                     debug!("Parsed --bpe with default size: {:?}", bpe_vocab_size);
                 }
             }
@@ -189,6 +224,13 @@ fn main() -> std::io::Result<()> {
                     debug!("Parsed --vocab: {}", vocab_path);
                 }
             }
+            "--vocab" => {
+                i += 1;
+                if i < args.len() {
+                    vocab_path = args[i].clone();
+                    debug!("Parsed --vocab: {}", vocab_path);
+                }
+            }
             "--checkpoint" => {
                 i += 1;
                 if i < args.len() {
@@ -224,11 +266,12 @@ fn main() -> std::io::Result<()> {
                 println!("USAGE:");
                 println!("  randygpt [OPTIONS]\n");
                 println!("TRAINING:");
-                println!("  --iters N          Training iterations (default: {})", MAX_ITERS);
+                println!("  --iters N          Training iterations (default: {})", unsafe { MAX_ITERS });
                 println!("  --train-file PATH  Training text file (default: train.txt)");
+                println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { BPE_VOCAB_PATH.as_str() });
                 println!("  --vocab PATH       BPE vocab JSON file (default: vocab.json)");
                 println!("  --checkpoint NAME  Checkpoint filename prefix (default: checkpoint)");
-                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", BPE_VOCAB_SIZE);
+                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", unsafe { BPE_VOCAB_SIZE });
                 println!("                     If N is omitted, uses default BPE_VOCAB_SIZE.");
                 println!("  --resume [PATH]    Resume from checkpoint (default: <prefix>_best.bin,");
                 println!("                     where <prefix> is from --checkpoint or train-file).");
@@ -260,8 +303,8 @@ fn main() -> std::io::Result<()> {
         }
         i += 1;
     }
-    let lr     = lr_override.unwrap_or(LEARNING_RATE);
-    let min_lr = min_lr_override.unwrap_or(MIN_LEARNING_RATE);
+    let lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
+    let min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
     debug!("Final learning rate: {}, Min learning rate: {}", lr, min_lr);
 
     // Derive checkpoint prefix: explicit --checkpoint > stem of --train-file > "checkpoint"
@@ -348,8 +391,8 @@ fn main() -> std::io::Result<()> {
                           else                                 { "XS (~0.86M)"  };
     debug!("Selected model size: {}", model_size_name);
     println!("=== Enhanced randyGPT ===");
-    println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, N_LAYER, N_HEAD, N_EMBD);
-    println!("Block size: {}, Vocab size: up to {}", BLOCK_SIZE, MAX_VOCAB);
+    println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
+    println!("Block size: {}, Vocab size: up to {}", unsafe { BLOCK_SIZE }, unsafe { MAX_VOCAB });
     println!();
 
     let mut rng = Rng::new(1337);
@@ -388,7 +431,7 @@ fn main() -> std::io::Result<()> {
         // Load model + checkpoint
         let mut model = GPTModel::new(tokenizer.vocab_size, &mut rng);
         let param_count = model.wte.len() + model.wpe.len() + model.lm_head.len()
-            + N_LAYER * (
+            + unsafe { N_LAYER } * (
                 model.layers[0].wq.len() + model.layers[0].wk.len()
                 + model.layers[0].wv.len() + model.layers[0].wo.len()
                 + model.layers[0].fc1.len() + model.layers[0].fc2.len()
@@ -463,7 +506,7 @@ fn main() -> std::io::Result<()> {
 
         let mut model = GPTModel::new(tokenizer.vocab_size, &mut rng);
         let param_count = model.wte.len() + model.wpe.len() + model.lm_head.len()
-            + N_LAYER * (
+            + unsafe { N_LAYER } * (
                 model.layers[0].wq.len() + model.layers[0].wk.len()
                 + model.layers[0].wv.len() + model.layers[0].wo.len()
                 + model.layers[0].fc1.len() + model.layers[0].fc2.len()
@@ -486,7 +529,7 @@ fn main() -> std::io::Result<()> {
                 "No checkpoint found for --serve. Train a model first."));
         }
 
-        let model_name = format!("randygpt-{}L-{}H-{}D", N_LAYER, N_HEAD, N_EMBD);
+        let model_name = format!("randygpt-{}L-{}H-{}D", unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
         debug!("Starting HTTP server at {} for model: {}", addr, model_name);
 
         serve::run_server(&addr, &model, &tokenizer, &model_name, api_key.as_deref());
@@ -498,15 +541,15 @@ fn main() -> std::io::Result<()> {
     // skip loading the raw training text entirely (saves ~110MB for large corpora).
     let token_cache_path = format!("{}.tokens.bin", train_file);
     let have_token_cache = Path::new(&token_cache_path).exists();
-    let have_bpe_vocab   = bpe_vocab_size.is_some() && Path::new(&vocab_path).exists();
+    let have_bpe_vocab   = bpe_vocab_size.is_some() && Path::new(unsafe { BPE_VOCAB_PATH.as_str() }).exists();
     debug!("Token cache path: {}, exists: {}", token_cache_path, have_token_cache);
-    debug!("BPE vocab path: {}, exists: {}", vocab_path, have_bpe_vocab);
+    debug!("BPE vocab path: {}, exists: {}", unsafe { BPE_VOCAB_PATH.as_str() }, have_bpe_vocab);
 
     let (tokenizer, data, val_data) = if have_token_cache && have_bpe_vocab {
         // Fast path: load vocab + cached tokens, skip raw text entirely
-        println!("Loading BPE vocab from {}...", vocab_path);
-        debug!("Fast path: Loading BPE vocab from {}.", vocab_path);
-        let tokenizer = Tokenizer::load_bpe(&vocab_path)
+        println!("Loading BPE vocab from {}...", unsafe { BPE_VOCAB_PATH.as_str() });
+        debug!("Fast path: Loading BPE vocab from {}.", unsafe { BPE_VOCAB_PATH.as_str() });
+        let tokenizer = Tokenizer::load_bpe(unsafe { BPE_VOCAB_PATH.as_str() })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
         println!("Loaded BPE vocab ({} tokens)", tokenizer.vocab_size);
         debug!("Fast path: Loaded BPE vocab with {} tokens.", tokenizer.vocab_size);
@@ -556,18 +599,18 @@ fn main() -> std::io::Result<()> {
         debug!("Training data loaded, size: {} characters.", training_text.len());
 
         let tokenizer = if let Some(target) = bpe_vocab_size {
-            if Path::new(&vocab_path).exists() {
-                println!("Loading BPE vocab from {}...", vocab_path);
-                debug!("Attempting to load BPE vocab from {}.", vocab_path);
-                match Tokenizer::load_bpe(&vocab_path) {
+            if Path::new(unsafe { BPE_VOCAB_PATH.as_str() }).exists() {
+                println!("Loading BPE vocab from {}...", unsafe { BPE_VOCAB_PATH.as_str() });
+                debug!("Attempting to load BPE vocab from {}.", unsafe { BPE_VOCAB_PATH.as_str() });
+                match Tokenizer::load_bpe(unsafe { BPE_VOCAB_PATH.as_str() }) {
                     Ok(t)  => { println!("Loaded BPE vocab ({} tokens)", t.vocab_size); debug!("Loaded BPE vocab with {} tokens.", t.vocab_size); t }
                     Err(e) => {
-                        eprintln!("Failed to load {}: {}. Retraining...", vocab_path, e);
-                        warn!("Failed to load BPE vocab {}: {}. Retraining.", vocab_path, e);
+                        eprintln!("Failed to load {}: {}. Retraining...", unsafe { BPE_VOCAB_PATH.as_str() }, e);
+                        warn!("Failed to load BPE vocab {}: {}. Retraining.", unsafe { BPE_VOCAB_PATH.as_str() }, e);
                         let t = Tokenizer::from_text_bpe(&training_text, target);
-                        t.save_bpe(&vocab_path)?;
-                        println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, vocab_path);
-                        debug!("Retrained and saved BPE vocab with {} tokens to {}.", t.vocab_size, vocab_path);
+                        t.save_bpe(unsafe { BPE_VOCAB_PATH.as_str() })?;
+                        println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
+                        debug!("Retrained and saved BPE vocab with {} tokens to {}.", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
                         t
                     }
                 }
@@ -575,9 +618,9 @@ fn main() -> std::io::Result<()> {
                 println!("Training BPE tokenizer (target vocab: {})...", target);
                 info!("Training new BPE tokenizer with target vocab: {}.", target);
                 let t = Tokenizer::from_text_bpe(&training_text, target);
-                t.save_bpe(&vocab_path)?;
-                println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, vocab_path);
-                debug!("New BPE vocab ({} tokens) saved to {}.", t.vocab_size, vocab_path);
+                t.save_bpe(unsafe { BPE_VOCAB_PATH.as_str() })?;
+                println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
+                debug!("New BPE vocab ({} tokens) saved to {}.", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
                 t
             }
         } else {
@@ -633,7 +676,7 @@ fn main() -> std::io::Result<()> {
     debug!("Built {} valid validation start positions.", val_valid_starts.len());
     if !valid_starts.is_empty() {
         let pct = 100.0 * valid_starts.len() as f64
-            / data.len().saturating_sub(crate::config::BLOCK_SIZE + 1) as f64;
+            / data.len().saturating_sub(unsafe { crate::config::BLOCK_SIZE } + 1) as f64;
         println!("Doc-boundary sampling: {} valid train windows ({:.1}% of total)",
             valid_starts.len(), pct);
         debug!("Document-boundary sampling: {} valid train windows ({:.1}% of total).", valid_starts.len(), pct);
@@ -646,7 +689,7 @@ fn main() -> std::io::Result<()> {
     let mut model = GPTModel::new(tokenizer.vocab_size, &mut rng);
 
     let param_count = model.wte.len() + model.wpe.len() + model.lm_head.len()
-        + N_LAYER * (
+        + unsafe { N_LAYER } * (
             model.layers[0].wq.len() + model.layers[0].wk.len()
             + model.layers[0].wv.len() + model.layers[0].wo.len()
             + model.layers[0].fc1.len() + model.layers[0].fc2.len()

@@ -1,3 +1,34 @@
+use serde::Deserialize;
+use std::fs::read_to_string;
+use toml;
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RandyGPTConfig {
+    pub n_embd: Option<usize>,
+    pub n_head: Option<usize>,
+    pub n_layer: Option<usize>,
+    pub block_size: Option<usize>,
+    pub max_vocab: Option<usize>,
+    pub batch_size: Option<usize>,
+    pub bpe_vocab_path: Option<String>,
+}
+
+pub fn load_config() -> RandyGPTConfig {
+    match read_to_string("RandyGPT.toml") {
+        Ok(content) => match toml::from_str(&content) {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!("Warning: Could not parse RandyGPT.toml: {}. Using default configuration.", e);
+                RandyGPTConfig::default()
+            }
+        },
+        Err(e) => {
+            eprintln!("Warning: Could not read RandyGPT.toml: {}. Using default configuration.", e);
+            RandyGPTConfig::default()
+        }
+    }
+}
+
 /* ------------------------------------------------------------------ */
 /* Hyperparameters and global constants                               */
 /* ------------------------------------------------------------------ */
@@ -16,89 +47,23 @@
 
 // ── Architecture ──────────────────────────────────────────────────────────
 
-#[cfg(feature = "model-xs")]
-pub const N_EMBD:  usize = 116;
-#[cfg(feature = "model-xs")]
-pub const N_HEAD:  usize = 4;
-#[cfg(feature = "model-xs")]
-pub const N_LAYER: usize = 3;
+pub static mut N_EMBD:  usize = 116;
+pub static mut N_HEAD:  usize = 4;
+pub static mut N_LAYER: usize = 3;
 
-#[cfg(feature = "model-s")]
-pub const N_EMBD:  usize = 128;
-#[cfg(feature = "model-s")]
-pub const N_HEAD:  usize = 4;
-#[cfg(feature = "model-s")]
-pub const N_LAYER: usize = 8;
-
-#[cfg(feature = "model-ds")]
-pub const N_EMBD:  usize = 128;
-#[cfg(feature = "model-ds")]
-pub const N_HEAD:  usize = 4;
-#[cfg(feature = "model-ds")]
-pub const N_LAYER: usize = 12;
-
-#[cfg(feature = "model-m")]
-pub const N_EMBD:  usize = 192;
-#[cfg(feature = "model-m")]
-pub const N_HEAD:  usize = 6;
-#[cfg(feature = "model-m")]
-pub const N_LAYER: usize = 6;
-
-#[cfg(feature = "model-deep")]
-pub const N_EMBD:  usize = 192;
-#[cfg(feature = "model-deep")]
-pub const N_HEAD:  usize = 6;
-#[cfg(feature = "model-deep")]
-pub const N_LAYER: usize = 16;
-
-#[cfg(feature = "model-l")]
-pub const N_EMBD:  usize = 256;
-#[cfg(feature = "model-l")]
-pub const N_HEAD:  usize = 8;
-#[cfg(feature = "model-l")]
-pub const N_LAYER: usize = 6;
-
-#[cfg(feature = "model-xl")]
-pub const N_EMBD:  usize = 384;
-#[cfg(feature = "model-xl")]
-pub const N_HEAD:  usize = 8;
-#[cfg(feature = "model-xl")]
-pub const N_LAYER: usize = 8;
-
-// Default (model-xs): 116-dim, 4-head, 3-layer — ~0.86M params  ← default
-#[cfg(not(any(feature = "model-xs", feature = "model-s", feature = "model-ds", feature = "model-m", feature = "model-l", feature = "model-deep", feature = "model-xl")))]
-pub const N_EMBD:  usize = 116;
-#[cfg(not(any(feature = "model-xs", feature = "model-s", feature = "model-ds", feature = "model-m", feature = "model-l", feature = "model-deep", feature = "model-xl")))]
-pub const N_HEAD:  usize = 4;
-#[cfg(not(any(feature = "model-xs", feature = "model-s", feature = "model-ds", feature = "model-m", feature = "model-l", feature = "model-deep", feature = "model-xl")))]
-pub const N_LAYER: usize = 3;
-
-pub const BLOCK_SIZE: usize = 256;
-pub const HEAD_DIM:   usize = N_EMBD / N_HEAD;
-pub const MLP_DIM:    usize = 4 * N_EMBD;
-pub const MAX_VOCAB:  usize = 8192;   // raised for BPE (char-level uses ~117)
+pub static mut BLOCK_SIZE: usize = 256;
+pub static mut HEAD_DIM:   usize = 0;   // Calculated dynamically
+pub static mut MLP_DIM:    usize = 0;   // Calculated dynamically
+pub static mut MAX_VOCAB:  usize = 8192;   // raised for BPE (char-level uses ~117)
 
 // ── BPE tokenizer ─────────────────────────────────────────────────────────
 pub const BPE_VOCAB_SIZE: usize = 2000; // default target vocab for --bpe mode
-pub const BPE_VOCAB_PATH: &str  = "vocab.json";
+pub static mut BPE_VOCAB_PATH: String  = String::new();
 
 // ── Training ──────────────────────────────────────────────────────────────
 
 // Per-model batch size defaults — smaller models have memory headroom for larger batches.
-#[cfg(feature = "model-xs")]
-pub const BATCH_SIZE: usize = 64;
-#[cfg(feature = "model-s")]
-pub const BATCH_SIZE: usize = 64;
-#[cfg(feature = "model-ds")]
-pub const BATCH_SIZE: usize = 64;
-#[cfg(feature = "model-m")]
-pub const BATCH_SIZE: usize = 64;
-#[cfg(feature = "model-l")]
-pub const BATCH_SIZE: usize = 64;
-#[cfg(feature = "model-deep")]
-pub const BATCH_SIZE: usize = 16;
-#[cfg(not(any(feature = "model-xs", feature = "model-s", feature = "model-ds", feature = "model-m", feature = "model-l", feature = "model-deep")))]
-pub const BATCH_SIZE: usize = 64;
+pub static mut BATCH_SIZE: usize = 64;
 
 // Gradient accumulation — kept at 1 for all models.
 // accum>1 causes Metal GPU stalls (system freezes ~10s, interrupts blocked).

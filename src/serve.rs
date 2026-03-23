@@ -16,7 +16,7 @@ struct InferRequest {
     temperature: f32,
 }
 
-fn default_max_tokens() -> usize { BLOCK_SIZE }
+fn default_max_tokens() -> usize { unsafe { BLOCK_SIZE } }
 fn default_temperature() -> f32 { 0.7 }
 
 #[derive(Serialize)]
