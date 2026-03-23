@@ -1,5 +1,7 @@
 use serde::Deserialize;
-use std::fs::read_to_string;
+use std::fs::{read_to_string, File};
+use std::io::Write;
+use std::path::Path;
 use toml;
 
 pub const DEFAULT_CONFIG_TOML: &[u8] = include_bytes!("RandyGPT.toml");
@@ -15,38 +17,51 @@ pub struct RandyGPTConfig {
     pub bpe_vocab_path: Option<String>,
 }
 
-pub fn load_config(config_file_path: Option<&str>) -> RandyGPTConfig {
-    let config_path_to_read = config_file_path.unwrap_or("src/RandyGPT.toml");
+pub fn load_config(config_file_path: Option<&str>) -> Result<RandyGPTConfig, std::io::Error> {
+    let path_to_attempt = config_file_path.unwrap_or("src/RandyGPT.toml");
+    let path = Path::new(path_to_attempt);
 
-    match read_to_string(config_path_to_read) {
-        Ok(content) => match toml::from_str(&content) {
-            Ok(config) => config,
-            Err(e) => {
-                eprintln!("Warning: Could not parse {} from filesystem: {}. Attempting to use embedded default configuration.", config_path_to_read, e);
-                // Fallback to embedded default
-                match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
-                    Ok(config) => config,
-                    Err(e) => {
-                        eprintln!("Error: Could not parse embedded default RandyGPT.toml: {}. Using empty default configuration.", e);
-                        RandyGPTConfig::default()
-                    }
-                }
-            }
+    let config_content = match read_to_string(path) {
+        Ok(content) => {
+            println!("Loaded configuration from '{}'.", path.display());
+            content
         },
-        Err(e) => {
-            eprintln!("Warning: Could not read {} from filesystem: {}. Attempting to use embedded default configuration.", config_path_to_read, e);
-            // Fallback to embedded default
-            match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
-                Ok(config) => config,
+        Err(read_error) => {
+            // If the path exists and is a directory, or if it's a permission error, don't try to write.
+            if path.is_dir() {
+                eprintln!("Warning: '{}' is a directory. Cannot read or write config to a directory. Falling back to in-memory default.", path.display());
+                return Ok(RandyGPTConfig::default());
+            }
+            
+            eprintln!("Warning: Could not read configuration from '{}': {}. Attempting to write embedded default.", path.display(), read_error);
+            // Attempt to write the embedded default to the specified path
+            match File::create(path) {
+                Ok(mut file) => match file.write_all(DEFAULT_CONFIG_TOML) {
+                    Ok(_) => {
+                        println!("Wrote embedded default configuration to '{}'.", path.display());
+                        std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap().to_string()
+                    },
+                    Err(e) => {
+                        eprintln!("Error: Could not write embedded default to '{}': {}. Falling back to in-memory default.", path.display(), e);
+                        return Ok(RandyGPTConfig::default()); // Cannot write, return empty default
+                    }
+                },
                 Err(e) => {
-                    eprintln!("Error: Could not parse embedded default RandyGPT.toml: {}. Using empty default configuration.", e);
-                    RandyGPTConfig::default()
+                    eprintln!("Error: Could not create file '{}' to write default config: {}. Falling back to in-memory default.", path.display(), e);
+                    return Ok(RandyGPTConfig::default()); // Cannot create file, return empty default
                 }
             }
         }
+    };
+
+    match toml::from_str(&config_content) {
+        Ok(config) => Ok(config),
+        Err(e) => {
+            eprintln!("Error: Could not parse configuration from '{}': {}. Using in-memory default.", path.display(), e);
+            Ok(RandyGPTConfig::default())
+        }
     }
 }
-
 /* ------------------------------------------------------------------ */
 /* Hyperparameters and global constants                               */
 /* ------------------------------------------------------------------ */

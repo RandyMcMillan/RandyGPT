@@ -75,10 +75,31 @@ fn main() -> std::io::Result<()> {
     env_logger::init();
     debug!("Logger initialized.");
 
-    let mut config_path_arg: Option<String> = None; // Moved declaration here
+    let args: Vec<String> = std::env::args().collect();
+    let mut config_path_arg: Option<String> = None;
+
+    let mut args_iter = args.into_iter().peekable();
+    let mut filtered_args: Vec<String> = Vec::new();
+
+    while let Some(arg) = args_iter.next() {
+        if arg == "--config" {
+            if let Some(config_val) = args_iter.next() {
+                config_path_arg = Some(config_val.clone());
+                debug!("Pre-parsed --config path: {:?}", config_path_arg);
+            } else {
+                eprintln!("Warning: --config argument provided without a value. Ignoring.");
+            }
+        } else {
+            filtered_args.push(arg);
+        }
+    }
 
     // Load RandyGPT.toml config
-    let randy_gpt_config = config::load_config(config_path_arg.as_deref());
+    let randy_gpt_config = config::load_config(config_path_arg.as_deref())
+        .unwrap_or_else(|e| {
+            eprintln!("Error loading configuration: {}", e);
+            std::process::exit(1);
+        });
 
     unsafe {
         // Apply TOML overrides, or use default feature values
@@ -114,8 +135,7 @@ fn main() -> std::io::Result<()> {
     ctrlc_tiny::init_ctrlc().expect("Error setting Ctrl-C handler");
     // ── CLI arguments ─────────────────────────────────────────────────
     // Usage: randygpt [--iters N] [--resume [path]]
-    let args: Vec<String> = std::env::args().collect();
-    debug!("CLI arguments: {:?}", args);
+    debug!("CLI arguments: {:?}", filtered_args);
     let mut iterations = MAX_ITERS;
     let mut resume_path: Option<String> = None;
     let mut lr_override:     Option<f32> = None;
@@ -127,26 +147,26 @@ fn main() -> std::io::Result<()> {
     let mut serve_addr:      Option<String> = None;
     let mut api_key:         Option<String> = None;
     let mut train_file:              String = "train.txt".to_string();
-    let mut vocab_path:              String = unsafe { BPE_VOCAB_PATH.clone() }; // Initialize from config::BPE_VOCAB_PATH
+    let mut vocab_path:              String = unsafe { BPE_VOCAB_PATH.clone() }; // Initialized here
     let mut checkpoint_prefix_arg:   Option<String> = None;
     let mut fine_tune:               bool = false;
     let mut gen_max_tokens:         usize = 200;
     let mut gen_temperature:         f32  = 0.8;
     let mut gen_top_k:               f32  = 0.9;
     let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
+    while i < filtered_args.len() {
+        match filtered_args[i].as_str() {
             "--iters" => {
                 i += 1;
-                if i < args.len() {
-                    iterations = args[i].parse().unwrap_or(MAX_ITERS);
+                if i < filtered_args.len() {
+                    iterations = filtered_args[i].parse().unwrap_or(MAX_ITERS);
                     debug!("Parsed --iters: {}", iterations);
                 }
             }
             "--resume" => {
-                if i + 1 < args.len() && !args[i + 1].starts_with("--") {
+                if i + 1 < filtered_args.len() && !filtered_args[i + 1].starts_with("--") {
                     i += 1;
-                    resume_path = Some(args[i].clone());
+                    resume_path = Some(filtered_args[i].clone());
                     debug!("Parsed --resume path: {}", resume_path.as_ref().unwrap());
                 } else {
                     // deferred: will use checkpoint_prefix once fully parsed
@@ -156,24 +176,24 @@ fn main() -> std::io::Result<()> {
             }
             "--lr" => {
                 i += 1;
-                if i < args.len() {
-                    lr_override = args[i].parse().ok();
+                if i < filtered_args.len() {
+                    lr_override = filtered_args[i].parse().ok();
                     debug!("Parsed --lr: {:?}", lr_override);
                 }
             }
             "--min-lr" => {
                 i += 1;
-                if i < args.len() {
-                    min_lr_override = args[i].parse().ok();
+                if i < filtered_args.len() {
+                    min_lr_override = filtered_args[i].parse().ok();
                     debug!("Parsed --min-lr: {:?}", min_lr_override);
                 }
             }
             "--bpe" => {
                 // --bpe        → use default BPE_VOCAB_SIZE
                 // --bpe 3000   → use custom target vocab size
-                if i + 1 < args.len() && !args[i + 1].starts_with("--") {
+                if i + 1 < filtered_args.len() && !filtered_args[i + 1].starts_with("--") {
                     i += 1;
-                    bpe_vocab_size = Some(args[i].parse().unwrap_or(unsafe { BPE_VOCAB_SIZE }));
+                    bpe_vocab_size = Some(filtered_args[i].parse().unwrap_or(unsafe { BPE_VOCAB_SIZE }));
                     debug!("Parsed --bpe with custom size: {:?}", bpe_vocab_size);
                 } else {
                     bpe_vocab_size = Some(unsafe { BPE_VOCAB_SIZE });
@@ -185,10 +205,10 @@ fn main() -> std::io::Result<()> {
                 // --generate "prompt1" "prompt2"  → use custom prompts
                 generate_mode = true;
                 debug!("Generate mode activated.");
-                while i + 1 < args.len() && !args[i + 1].starts_with("--") {
+                while i + 1 < filtered_args.len() && !filtered_args[i + 1].starts_with("--") {
                     i += 1;
-                    generate_prompts.push(args[i].clone());
-                    debug!("Added generate prompt: {}", args[i]);
+                    generate_prompts.push(filtered_args[i].clone());
+                    debug!("Added generate prompt: {}", filtered_args[i]);
                 }
             }
             "--serve" => {
@@ -196,9 +216,9 @@ fn main() -> std::io::Result<()> {
                 // --serve 127.0.0.1:9000 → listen on custom address
                 serve_mode = true;
                 debug!("Serve mode activated.");
-                if i + 1 < args.len() && !args[i + 1].starts_with("--") {
+                if i + 1 < filtered_args.len() && !filtered_args[i + 1].starts_with("--") {
                     i += 1;
-                    serve_addr = Some(args[i].clone());
+                    serve_addr = Some(filtered_args[i].clone());
                     debug!("Parsed --serve address: {:?}", serve_addr);
                 } else {
                     serve_addr = Some("0.0.0.0:8080".to_string());
@@ -207,59 +227,52 @@ fn main() -> std::io::Result<()> {
             }
             "--api-key" => {
                 i += 1;
-                if i < args.len() {
-                    api_key = Some(args[i].clone());
+                if i < filtered_args.len() {
+                    api_key = Some(filtered_args[i].clone());
                     debug!("Parsed --api-key (value omitted for security).");
-                }
-            }
-            "--config" => {
-                i += 1;
-                if i < args.len() {
-                    config_path_arg = Some(args[i].clone());
-                    debug!("Parsed --config path: {:?}", config_path_arg);
                 }
             }
             "--train-file" => {
                 i += 1;
-                if i < args.len() {
-                    train_file = args[i].clone();
+                if i < filtered_args.len() {
+                    train_file = filtered_args[i].clone();
                     debug!("Parsed --train-file: {}", train_file);
                 }
             }
             "--vocab" => {
                 i += 1;
-                if i < args.len() {
-                    vocab_path = args[i].clone();
+                if i < filtered_args.len() {
+                    vocab_path = filtered_args[i].clone();
                     debug!("Parsed --vocab: {}", vocab_path);
                 }
             }
             "--checkpoint" => {
                 i += 1;
-                if i < args.len() {
+                if i < filtered_args.len() {
                     // Strip .bin suffix if provided — we append it ourselves
-                    checkpoint_prefix_arg = Some(args[i].trim_end_matches(".bin").to_string());
+                    checkpoint_prefix_arg = Some(filtered_args[i].trim_end_matches(".bin").to_string());
                     debug!("Parsed --checkpoint prefix: {:?}", checkpoint_prefix_arg);
                 }
             }
             "--fine-tune" => { fine_tune = true; debug!("Parsed --fine-tune: true"); }
             "--max-tokens" => {
                 i += 1;
-                if i < args.len() {
-                    gen_max_tokens = args[i].parse().unwrap_or(200);
+                if i < filtered_args.len() {
+                    gen_max_tokens = filtered_args[i].parse().unwrap_or(200);
                     debug!("Parsed --max-tokens: {}", gen_max_tokens);
                 }
             }
             "--temperature" => {
                 i += 1;
-                if i < args.len() {
-                    gen_temperature = args[i].parse().unwrap_or(0.8);
+                if i < filtered_args.len() {
+                    gen_temperature = filtered_args[i].parse().unwrap_or(0.8);
                     debug!("Parsed --temperature: {}", gen_temperature);
                 }
             }
             "--top-k" => {
                 i += 1;
-                if i < args.len() {
-                    gen_top_k = args[i].parse().unwrap_or(0.9);
+                if i < filtered_args.len() {
+                    gen_top_k = filtered_args[i].parse().unwrap_or(0.9);
                     debug!("Parsed --top-k: {}", gen_top_k);
                 }
             }
@@ -296,7 +309,7 @@ fn main() -> std::io::Result<()> {
                 std::process::exit(0);
             }
             other => {
-                if let Ok(n) = other.parse::<usize>() {
+                if let Ok(n) = filtered_args[i].parse::<usize>() {
                     iterations = n;
                     debug!("Parsed unrecognized numeric argument as iterations: {}", iterations);
                 } else {
@@ -310,6 +323,44 @@ fn main() -> std::io::Result<()> {
     let lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
     let min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
     debug!("Final learning rate: {}, Min learning rate: {}", lr, min_lr);
+
+    // Load RandyGPT.toml config (after argument parsing)
+    let randy_gpt_config = config::load_config(config_path_arg.as_deref())
+        .unwrap_or_else(|e| {
+            eprintln!("Error loading configuration: {}", e);
+            std::process::exit(1);
+        });
+
+    unsafe {
+        // Apply TOML overrides, or use default feature values
+        if let Some(n_embd) = randy_gpt_config.n_embd {
+            N_EMBD = n_embd;
+        }
+        if let Some(n_head) = randy_gpt_config.n_head {
+            N_HEAD = n_head;
+        }
+        if let Some(n_layer) = randy_gpt_config.n_layer {
+            N_LAYER = n_layer;
+        }
+        if let Some(block_size) = randy_gpt_config.block_size {
+            BLOCK_SIZE = block_size;
+        }
+        if let Some(max_vocab) = randy_gpt_config.max_vocab {
+            MAX_VOCAB = max_vocab;
+        }
+        if let Some(batch_size) = randy_gpt_config.batch_size {
+            BATCH_SIZE = batch_size;
+        }
+        if let Some(bpe_vocab_path) = randy_gpt_config.bpe_vocab_path {
+            BPE_VOCAB_PATH = bpe_vocab_path;
+        } else if BPE_VOCAB_PATH.is_empty() {
+            BPE_VOCAB_PATH = "vocab.json".to_string(); // Default if not in TOML and not already set
+        }
+
+        // Re-calculate derived constants after potential overrides
+        HEAD_DIM = N_EMBD / N_HEAD;
+        MLP_DIM = 4 * N_EMBD;
+    }
 
     // Derive checkpoint prefix: explicit --checkpoint > stem of --train-file > "checkpoint"
     let checkpoint_prefix = checkpoint_prefix_arg.unwrap_or_else(|| {
