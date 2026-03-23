@@ -227,7 +227,6 @@ pub fn parse_args() -> Cli {
                 println!("  --iters N          Training iterations (default: {})", unsafe { MAX_ITERS });
                 println!("  --train-file PATH  Training text file (default: train.txt)");
                 println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { BPE_VOCAB_PATH.as_str() });
-                println!("  --vocab PATH       BPE vocab JSON file (default: vocab.json)");
                 println!("  --checkpoint NAME  Checkpoint filename prefix (default: checkpoint)");
                 println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", unsafe { BPE_VOCAB_SIZE });
                 println!("                     If N is omitted, uses default BPE_VOCAB_SIZE.");
