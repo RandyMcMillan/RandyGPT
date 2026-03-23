@@ -15,12 +15,14 @@ pub struct RandyGPTConfig {
     pub bpe_vocab_path: Option<String>,
 }
 
-pub fn load_config() -> RandyGPTConfig {
-    match read_to_string("src/RandyGPT.toml") {
+pub fn load_config(config_file_path: Option<&str>) -> RandyGPTConfig {
+    let config_path_to_read = config_file_path.unwrap_or("src/RandyGPT.toml");
+
+    match read_to_string(config_path_to_read) {
         Ok(content) => match toml::from_str(&content) {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Warning: Could not parse src/RandyGPT.toml from filesystem: {}. Attempting to use embedded default configuration.", e);
+                eprintln!("Warning: Could not parse {} from filesystem: {}. Attempting to use embedded default configuration.", config_path_to_read, e);
                 // Fallback to embedded default
                 match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
                     Ok(config) => config,
@@ -32,7 +34,7 @@ pub fn load_config() -> RandyGPTConfig {
             }
         },
         Err(e) => {
-            eprintln!("Warning: Could not read src/RandyGPT.toml from filesystem: {}. Attempting to use embedded default configuration.", e);
+            eprintln!("Warning: Could not read {} from filesystem: {}. Attempting to use embedded default configuration.", config_path_to_read, e);
             // Fallback to embedded default
             match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
                 Ok(config) => config,

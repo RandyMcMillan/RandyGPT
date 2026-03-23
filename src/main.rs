@@ -75,8 +75,10 @@ fn main() -> std::io::Result<()> {
     env_logger::init();
     debug!("Logger initialized.");
 
+    let mut config_path_arg: Option<String> = None; // Moved declaration here
+
     // Load RandyGPT.toml config
-    let randy_gpt_config = config::load_config();
+    let randy_gpt_config = config::load_config(config_path_arg.as_deref());
 
     unsafe {
         // Apply TOML overrides, or use default feature values
@@ -210,6 +212,13 @@ fn main() -> std::io::Result<()> {
                     debug!("Parsed --api-key (value omitted for security).");
                 }
             }
+            "--config" => {
+                i += 1;
+                if i < args.len() {
+                    config_path_arg = Some(args[i].clone());
+                    debug!("Parsed --config path: {:?}", config_path_arg);
+                }
+            }
             "--train-file" => {
                 i += 1;
                 if i < args.len() {
@@ -258,6 +267,8 @@ fn main() -> std::io::Result<()> {
                 println!("randyGPT — tiny GPT language model\n");
                 println!("USAGE:");
                 println!("  randygpt [OPTIONS]\n");
+                println!("CONFIG:");
+                println!("  --config PATH      Path to RandyGPT.toml config file (overrides defaults)");
                 println!("TRAINING:");
                 println!("  --iters N          Training iterations (default: {})", unsafe { MAX_ITERS });
                 println!("  --train-file PATH  Training text file (default: train.txt)");
