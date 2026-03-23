@@ -45,10 +45,10 @@ jobs:
       run: cargo run --example hf_bert_inference --release
       timeout-minutes: 3 # Increased timeout slightly for download and initial load
 
-    - name: Run hf_qwen_inference example (download & run - longer timeout due to large model)
+    #- name: Run hf_qwen_inference example (download & run - longer timeout due to large model)
       # WARNING: The Qwen model is ~45GB (Q4_K_M). This step will attempt to download it.
       # The timeout is set generously to allow download to start and initial model loading.
       # It will likely be cancelled before full inference due to timeout and/or memory limits.
-      run: cargo run --example hf_qwen_inference --release
-      timeout-minutes: 10 # Set a longer timeout for the large Qwen model download/initialization
-      continue-on-error: true # Allow this to fail gracefully if memory/download is an issue
+      #run: cargo run --example hf_qwen_inference --release
+      #timeout-minutes: 10 # Set a longer timeout for the large Qwen model download/initialization
+      #continue-on-error: true # Allow this to fail gracefully if memory/download is an issue
