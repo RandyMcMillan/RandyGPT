@@ -89,6 +89,42 @@ pub static mut HEAD_DIM:   usize = 0;   // Calculated dynamically
 pub static mut MLP_DIM:    usize = 0;   // Calculated dynamically
 pub static mut MAX_VOCAB:  usize = 8192;   // raised for BPE (char-level uses ~117)
 
+// ── Model Presets ─────────────────────────────────────────────────────────
+pub const MODEL_XS_N_EMBD: usize = 116;
+pub const MODEL_XS_N_HEAD: usize = 4;
+pub const MODEL_XS_N_LAYER: usize = 3;
+pub const MODEL_XS_BATCH_SIZE: usize = 64;
+
+pub const MODEL_S_N_EMBD: usize = 128;
+pub const MODEL_S_N_HEAD: usize = 4;
+pub const MODEL_S_N_LAYER: usize = 8;
+pub const MODEL_S_BATCH_SIZE: usize = 64;
+
+pub const MODEL_DS_N_EMBD: usize = 128;
+pub const MODEL_DS_N_HEAD: usize = 4;
+pub const MODEL_DS_N_LAYER: usize = 12;
+pub const MODEL_DS_BATCH_SIZE: usize = 64;
+
+pub const MODEL_M_N_EMBD: usize = 192;
+pub const MODEL_M_N_HEAD: usize = 6;
+pub const MODEL_M_N_LAYER: usize = 6;
+pub const MODEL_M_BATCH_SIZE: usize = 64;
+
+pub const MODEL_L_N_EMBD: usize = 256;
+pub const MODEL_L_N_HEAD: usize = 8;
+pub const MODEL_L_N_LAYER: usize = 8;
+pub const MODEL_L_BATCH_SIZE: usize = 64;
+
+pub const MODEL_DEEP_N_EMBD: usize = 192;
+pub const MODEL_DEEP_N_HEAD: usize = 6;
+pub const MODEL_DEEP_N_LAYER: usize = 16;
+pub const MODEL_DEEP_BATCH_SIZE: usize = 16; // Special batch size for deep
+
+pub const MODEL_XL_N_EMBD: usize = 384;
+pub const MODEL_XL_N_HEAD: usize = 8;
+pub const MODEL_XL_N_LAYER: usize = 8;
+pub const MODEL_XL_BATCH_SIZE: usize = 64;
+
 // ── BPE tokenizer ─────────────────────────────────────────────────────────
 pub const BPE_VOCAB_SIZE: usize = 2000; // default target vocab for --bpe mode
 pub static mut BPE_VOCAB_PATH: String  = String::new();

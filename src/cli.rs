@@ -21,6 +21,13 @@ pub struct Cli {
     pub gen_temperature: f32,
     pub gen_top_k: f32,
     pub config_path_arg: Option<String>,
+    pub model_xs: bool,
+    pub model_s: bool,
+    pub model_ds: bool,
+    pub model_m: bool,
+    pub model_l: bool,
+    pub model_deep: bool,
+    pub model_xl: bool,
 }
 
 impl Default for Cli {
@@ -44,6 +51,13 @@ impl Default for Cli {
             gen_temperature: 0.8,
             gen_top_k: 0.9,
             config_path_arg: None,
+            model_xs: false,
+            model_s: false,
+            model_ds: false,
+            model_m: false,
+            model_l: false,
+            model_deep: false,
+            model_xl: false,
         }
     }
 }
@@ -167,6 +181,13 @@ pub fn parse_args() -> Cli {
                 }
             }
             "--fine-tune" => { cli.fine_tune = true; debug!("Parsed --fine-tune: true"); }
+            "--model-xs" => { cli.model_xs = true; debug!("Parsed --model-xs."); }
+            "--model-s" => { cli.model_s = true; debug!("Parsed --model-s."); }
+            "--model-ds" => { cli.model_ds = true; debug!("Parsed --model-ds."); }
+            "--model-m" => { cli.model_m = true; debug!("Parsed --model-m."); }
+            "--model-l" => { cli.model_l = true; debug!("Parsed --model-l."); }
+            "--model-deep" => { cli.model_deep = true; debug!("Parsed --model-deep."); }
+            "--model-xl" => { cli.model_xl = true; debug!("Parsed --model-xl."); }
             "--max-tokens" => {
                 i += 1;
                 if i < filtered_args.len() {
@@ -194,7 +215,15 @@ pub fn parse_args() -> Cli {
                 println!("  randygpt [OPTIONS]\n");
                 println!("CONFIG:");
                 println!("  --config PATH      Path to RandyGPT.toml config file (overrides defaults)");
-                println!("TRAINING:");
+                println!("\nMODEL PRESETS:");
+                println!("  --model-xs         Apply extra-small model (116-dim, 4-head, 3-layer, batch 64)");
+                println!("  --model-s          Apply small model (128-dim, 4-head, 8-layer, batch 64)");
+                println!("  --model-ds         Apply deep-small model (128-dim, 4-head, 12-layer, batch 64)");
+                println!("  --model-m          Apply medium model (192-dim, 6-head, 6-layer, batch 64)");
+                println!("  --model-l          Apply large model (256-dim, 8-head, 8-layer, batch 64)");
+                println!("  --model-deep       Apply deep model (192-dim, 6-head, 16-layer, batch 16)");
+                println!("  --model-xl         Apply extra-large model (384-dim, 8-head, 8-layer, batch 64)");
+                println!("\nTRAINING:");
                 println!("  --iters N          Training iterations (default: {})", unsafe { MAX_ITERS });
                 println!("  --train-file PATH  Training text file (default: train.txt)");
                 println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { BPE_VOCAB_PATH.as_str() });

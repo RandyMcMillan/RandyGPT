@@ -115,6 +115,55 @@ fn main() -> std::io::Result<()> {
         // Re-calculate derived constants after potential overrides
         HEAD_DIM = N_EMBD / N_HEAD;
         MLP_DIM = 4 * N_EMBD;
+
+        // Apply CLI model preset overrides (these take precedence over TOML)
+        if cli.model_xs {
+            N_EMBD = MODEL_XS_N_EMBD;
+            N_HEAD = MODEL_XS_N_HEAD;
+            N_LAYER = MODEL_XS_N_LAYER;
+            BATCH_SIZE = MODEL_XS_BATCH_SIZE;
+            debug!("CLI override: Applied --model-xs preset.");
+        } else if cli.model_s {
+            N_EMBD = MODEL_S_N_EMBD;
+            N_HEAD = MODEL_S_N_HEAD;
+            N_LAYER = MODEL_S_N_LAYER;
+            BATCH_SIZE = MODEL_S_BATCH_SIZE;
+            debug!("CLI override: Applied --model-s preset.");
+        } else if cli.model_ds {
+            N_EMBD = MODEL_DS_N_EMBD;
+            N_HEAD = MODEL_DS_N_HEAD;
+            N_LAYER = MODEL_DS_N_LAYER;
+            BATCH_SIZE = MODEL_DS_BATCH_SIZE;
+            debug!("CLI override: Applied --model-ds preset.");
+        } else if cli.model_m {
+            N_EMBD = MODEL_M_N_EMBD;
+            N_HEAD = MODEL_M_N_HEAD;
+            N_LAYER = MODEL_M_N_LAYER;
+            BATCH_SIZE = MODEL_M_BATCH_SIZE;
+            debug!("CLI override: Applied --model-m preset.");
+        } else if cli.model_l {
+            N_EMBD = MODEL_L_N_EMBD;
+            N_HEAD = MODEL_L_N_HEAD;
+            N_LAYER = MODEL_L_N_LAYER;
+            BATCH_SIZE = MODEL_L_BATCH_SIZE;
+            debug!("CLI override: Applied --model-l preset.");
+        } else if cli.model_deep {
+            N_EMBD = MODEL_DEEP_N_EMBD;
+            N_HEAD = MODEL_DEEP_N_HEAD;
+            N_LAYER = MODEL_DEEP_N_LAYER;
+            BATCH_SIZE = MODEL_DEEP_BATCH_SIZE;
+            debug!("CLI override: Applied --model-deep preset.");
+        } else if cli.model_xl {
+            N_EMBD = MODEL_XL_N_EMBD;
+            N_HEAD = MODEL_XL_N_HEAD;
+            N_LAYER = MODEL_XL_N_LAYER;
+            BATCH_SIZE = MODEL_XL_BATCH_SIZE;
+            debug!("CLI override: Applied --model-xl preset.");
+        }
+
+        // Re-calculate derived constants after CLI overrides as well
+        HEAD_DIM = N_EMBD / N_HEAD;
+        MLP_DIM = 4 * N_EMBD;
     }
 
     ctrlc_tiny::init_ctrlc().expect("Error setting Ctrl-C handler");
@@ -139,6 +188,10 @@ fn main() -> std::io::Result<()> {
     let gen_temperature:         f32  = cli.gen_temperature;
     let gen_top_k:               f32  = cli.gen_top_k;
     
+    // These need to be mutable here for the training loop
+    let mut lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
+    let mut min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
+
     // Derive checkpoint prefix: explicit --checkpoint > stem of --train-file > "checkpoint"
     let checkpoint_prefix = checkpoint_prefix_arg.unwrap_or_else(|| {
         let stem = std::path::Path::new(&train_file)
@@ -209,20 +262,29 @@ fn main() -> std::io::Result<()> {
         eprintln!("Found {} — use --resume to continue from it, or delete it to start fresh.", ckpt_bin);
         info!("Found existing checkpoint file without --resume: {}", ckpt_bin);
     }
-    let mut lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
-    let mut min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
     if lr_override.is_some() || min_lr_override.is_some() {
         println!("LR override: {} → {}", lr, min_lr);
         debug!("Learning rate override active: {} -> {}", lr, min_lr);
     }
 
-    let model_size_name = if cfg!(feature = "model-s")    { "S (~1.6M)"    }
-                          else if cfg!(feature = "model-ds")   { "DS (~2.78M)"  }
-                          else if cfg!(feature = "model-m")    { "M (~2.7M)"    }
-                          else if cfg!(feature = "model-l")    { "L (~4.82M)"   }
-                          else if cfg!(feature = "model-deep") { "Deep (~7.5M)" }
-                          else if cfg!(feature = "model-xl")   { "XL (~10.8M)"  }
-                          else                                 { "XS (~0.86M)"  };
+    let mut model_size_name = "Custom".to_string();
+    unsafe {
+        if N_EMBD == MODEL_XS_N_EMBD && N_HEAD == MODEL_XS_N_HEAD && N_LAYER == MODEL_XS_N_LAYER && BATCH_SIZE == MODEL_XS_BATCH_SIZE {
+            model_size_name = "XS (~0.86M)".to_string();
+        } else if N_EMBD == MODEL_S_N_EMBD && N_HEAD == MODEL_S_N_HEAD && N_LAYER == MODEL_S_N_LAYER && BATCH_SIZE == MODEL_S_BATCH_SIZE {
+            model_size_name = "S (~1.6M)".to_string();
+        } else if N_EMBD == MODEL_DS_N_EMBD && N_HEAD == MODEL_DS_N_HEAD && N_LAYER == MODEL_DS_N_LAYER && BATCH_SIZE == MODEL_DS_BATCH_SIZE {
+            model_size_name = "DS (~2.78M)".to_string();
+        } else if N_EMBD == MODEL_M_N_EMBD && N_HEAD == MODEL_M_N_HEAD && N_LAYER == MODEL_M_N_LAYER && BATCH_SIZE == MODEL_M_BATCH_SIZE {
+            model_size_name = "M (~2.7M)".to_string();
+        } else if N_EMBD == MODEL_L_N_EMBD && N_HEAD == MODEL_L_N_HEAD && N_LAYER == MODEL_L_N_LAYER && BATCH_SIZE == MODEL_L_BATCH_SIZE {
+            model_size_name = "L (~4.82M)".to_string();
+        } else if N_EMBD == MODEL_DEEP_N_EMBD && N_HEAD == MODEL_DEEP_N_HEAD && N_LAYER == MODEL_DEEP_N_LAYER && BATCH_SIZE == MODEL_DEEP_BATCH_SIZE {
+            model_size_name = "Deep (~7.5M)".to_string();
+        } else if N_EMBD == MODEL_XL_N_EMBD && N_HEAD == MODEL_XL_N_HEAD && N_LAYER == MODEL_XL_N_LAYER && BATCH_SIZE == MODEL_XL_BATCH_SIZE {
+            model_size_name = "XL (~10.8M)".to_string();
+        }
+    }
     debug!("Selected model size: {}", model_size_name);
     println!("=== Enhanced randyGPT ===");
     println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
