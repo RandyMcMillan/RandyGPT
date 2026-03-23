@@ -2,6 +2,8 @@ use serde::Deserialize;
 use std::fs::read_to_string;
 use toml;
 
+pub const DEFAULT_CONFIG_TOML: &[u8] = include_bytes!("RandyGPT.toml");
+
 #[derive(Debug, Deserialize, Default)]
 pub struct RandyGPTConfig {
     pub n_embd: Option<usize>,
@@ -14,17 +16,31 @@ pub struct RandyGPTConfig {
 }
 
 pub fn load_config() -> RandyGPTConfig {
-    match read_to_string("RandyGPT.toml") {
+    match read_to_string("src/RandyGPT.toml") {
         Ok(content) => match toml::from_str(&content) {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("Warning: Could not parse RandyGPT.toml: {}. Using default configuration.", e);
-                RandyGPTConfig::default()
+                eprintln!("Warning: Could not parse src/RandyGPT.toml from filesystem: {}. Attempting to use embedded default configuration.", e);
+                // Fallback to embedded default
+                match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
+                    Ok(config) => config,
+                    Err(e) => {
+                        eprintln!("Error: Could not parse embedded default RandyGPT.toml: {}. Using empty default configuration.", e);
+                        RandyGPTConfig::default()
+                    }
+                }
             }
         },
         Err(e) => {
-            eprintln!("Warning: Could not read RandyGPT.toml: {}. Using default configuration.", e);
-            RandyGPTConfig::default()
+            eprintln!("Warning: Could not read src/RandyGPT.toml from filesystem: {}. Attempting to use embedded default configuration.", e);
+            // Fallback to embedded default
+            match toml::from_str(std::str::from_utf8(DEFAULT_CONFIG_TOML).unwrap()) {
+                Ok(config) => config,
+                Err(e) => {
+                    eprintln!("Error: Could not parse embedded default RandyGPT.toml: {}. Using empty default configuration.", e);
+                    RandyGPTConfig::default()
+                }
+            }
         }
     }
 }

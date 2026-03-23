@@ -224,13 +224,6 @@ fn main() -> std::io::Result<()> {
                     debug!("Parsed --vocab: {}", vocab_path);
                 }
             }
-            "--vocab" => {
-                i += 1;
-                if i < args.len() {
-                    vocab_path = args[i].clone();
-                    debug!("Parsed --vocab: {}", vocab_path);
-                }
-            }
             "--checkpoint" => {
                 i += 1;
                 if i < args.len() {
