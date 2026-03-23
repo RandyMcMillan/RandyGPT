@@ -681,10 +681,9 @@ fn main() -> std::io::Result<()> {
                 }
             }
             Err(e) => {
-                eprintln!("Error loading checkpoint '{}': {}", ckpt, e);
-                error!("Error loading checkpoint {}: {}. Starting from scratch.", ckpt, e);
-                eprintln!("Starting from scratch instead.");
-                (0, 0, f32::INFINITY)
+                eprintln!("Error loading checkpoint '{}': {}. Starting a new training run with current model configuration.", ckpt, e);
+                error!("Error loading checkpoint {}: {}. Starting a new training run with current model configuration.", ckpt, e);
+                (0, 0, f32::INFINITY) // Start fresh, but preserve current model config
             }
         }
     } else {
