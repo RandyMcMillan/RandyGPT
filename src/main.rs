@@ -209,8 +209,8 @@ fn main() -> std::io::Result<()> {
         eprintln!("Found {} — use --resume to continue from it, or delete it to start fresh.", ckpt_bin);
         info!("Found existing checkpoint file without --resume: {}", ckpt_bin);
     }
-    let lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
-    let min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
+    let mut lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
+    let mut min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
     if lr_override.is_some() || min_lr_override.is_some() {
         println!("LR override: {} → {}", lr, min_lr);
         debug!("Learning rate override active: {} -> {}", lr, min_lr);
