@@ -22,11 +22,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build/Test ${{ matrix.feature }}
+    - name: Build ${{ matrix.feature }}
+      run: cargo build --verbose
+    - name: Test ${{ matrix.feature }}
       run: |
         if [[ "${{ matrix.feature }}" == "default" ]]; then
-          cargo build --verbose && cargo test
+          cargo test --verbose
         else
-          cargo build --verbose -- ${{ matrix.feature }} && cargo test --verbose -- ${{ matrix.feature }}
+          cargo test --verbose -- --${{ matrix.feature }}
         fi
       #continue-on-error: true
