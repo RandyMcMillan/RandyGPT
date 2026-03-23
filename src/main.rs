@@ -269,6 +269,7 @@ fn main() -> std::io::Result<()> {
 
     let mut model_size_name = "Custom".to_string();
     unsafe {
+        // Dynamic model name based on current parameters
         if N_EMBD == MODEL_XS_N_EMBD && N_HEAD == MODEL_XS_N_HEAD && N_LAYER == MODEL_XS_N_LAYER && BATCH_SIZE == MODEL_XS_BATCH_SIZE {
             model_size_name = "XS (~0.86M)".to_string();
         } else if N_EMBD == MODEL_S_N_EMBD && N_HEAD == MODEL_S_N_HEAD && N_LAYER == MODEL_S_N_LAYER && BATCH_SIZE == MODEL_S_BATCH_SIZE {
@@ -284,12 +285,12 @@ fn main() -> std::io::Result<()> {
         } else if N_EMBD == MODEL_XL_N_EMBD && N_HEAD == MODEL_XL_N_HEAD && N_LAYER == MODEL_XL_N_LAYER && BATCH_SIZE == MODEL_XL_BATCH_SIZE {
             model_size_name = "XL (~10.8M)".to_string();
         }
+        debug!("Selected model size: {}", model_size_name);
+        println!("=== Enhanced randyGPT ===");
+        println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, N_LAYER, N_HEAD, N_EMBD);
+        println!("Block size: {}, Vocab size: up to {}", BLOCK_SIZE, MAX_VOCAB);
+        println!();
     }
-    debug!("Selected model size: {}", model_size_name);
-    println!("=== Enhanced randyGPT ===");
-    println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
-    println!("Block size: {}, Vocab size: up to {}", unsafe { BLOCK_SIZE }, unsafe { MAX_VOCAB });
-    println!();
 
     let mut rng = Rng::new(1337);
     debug!("RNG initialized with seed 1337.");
