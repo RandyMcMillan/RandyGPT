@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l"]
+        feature: ["default", "model-xs", "model-s", "model-ds", "model-m", "model-deep", "model-xl", "model-l", "test-config-override", "test-training-params", "test-generation-params"]
 
     steps:
     - uses: actions/checkout@v4
@@ -29,6 +29,18 @@ jobs:
       run: |
         if [[ "${{ matrix.feature }}" == "default" ]]; then
           cargo test --verbose
+        elif [[ "${{ matrix.feature }}" == "test-config-override" ]]; then
+          echo "[model]" > RandyGPT_temp.toml
+          echo "n_embd = 100" >> RandyGPT_temp.toml
+          cargo run -- --config RandyGPT_temp.toml --model-s | grep "Model: S (~1.6M) — 8 layers, 4 heads, 128-dim"
+        elif [[ "${{ matrix.feature }}" == "test-training-params" ]]; then
+          echo "hello world" > train_temp.txt
+          cargo run -- --iters 1 --train-file train_temp.txt --vocab vocab_temp.json --bpe 100 --checkpoint checkpoint_temp
+        elif [[ "${{ matrix.feature }}" == "test-generation-params" ]]; then
+          # Requires a checkpoint, so we'll quickly train a tiny one first
+          echo "hello world" > train_gen_temp.txt
+          cargo run -- --iters 1 --train-file train_gen_temp.txt --vocab vocab_gen_temp.json --bpe 100 --checkpoint checkpoint_gen_temp
+          cargo run -- --generate "hello" --max-tokens 5 --resume checkpoint_gen_temp
         else
           cargo test --verbose -- --${{ matrix.feature }}
         fi
