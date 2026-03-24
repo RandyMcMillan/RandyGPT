@@ -260,5 +260,10 @@ pub fn parse_args() -> Cli {
         }
         i += 1;
     }
+    // If --bpe is used but --vocab is not, default vocab_path to "vocab.json"
+    if cli.bpe_vocab_size.is_some() && cli.vocab_path.is_empty() {
+        cli.vocab_path = "vocab.json".to_string();
+        debug!("Defaulted vocab_path to '{}' because --bpe was used without --vocab.", cli.vocab_path);
+    }
     cli
 }
