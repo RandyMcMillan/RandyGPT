@@ -108,7 +108,7 @@ fn main() -> std::io::Result<()> {
         }
         if let Some(bpe_vocab_path) = randy_gpt_config.bpe_vocab_path {
             BPE_VOCAB_PATH = bpe_vocab_path;
-        } else if unsafe { BPE_VOCAB_PATH }.is_empty() {
+        } else if unsafe { &BPE_VOCAB_PATH }.is_empty() {
             BPE_VOCAB_PATH = "vocab.json".to_string(); // Default if not in TOML and not already set
         }
 
@@ -287,8 +287,8 @@ fn main() -> std::io::Result<()> {
         }
         debug!("Selected model size: {}", model_size_name);
         println!("=== Enhanced randyGPT ===");
-        println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
-        println!("Block size: {}, Vocab size: up to {}", unsafe { BLOCK_SIZE }, unsafe { MAX_VOCAB });
+        println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, N_LAYER, N_HEAD, N_EMBD);
+        println!("Block size: {}, Vocab size: up to {}", BLOCK_SIZE, MAX_VOCAB);
         println!();
     }
 
@@ -441,13 +441,13 @@ fn main() -> std::io::Result<()> {
     let have_token_cache = Path::new(&token_cache_path).exists();
     let have_bpe_vocab   = bpe_vocab_size.is_some() && unsafe { Path::new(BPE_VOCAB_PATH.as_str()).exists() };
     debug!("Token cache path: {}, exists: {}", token_cache_path, have_token_cache);
-    debug!("BPE vocab path: {}, exists: {}", unsafe { BPE_VOCAB_PATH.as_str() }, have_bpe_vocab);
+    debug!("BPE vocab path: {}, exists: {}", unsafe { (&BPE_VOCAB_PATH).as_str() }, have_bpe_vocab);
 
     let (tokenizer, data, val_data) = if have_token_cache && have_bpe_vocab {
         // Fast path: load vocab + cached tokens, skip raw text entirely
-        println!("Loading BPE vocab from {}...", unsafe { BPE_VOCAB_PATH.as_str() });
-        debug!("Fast path: Loading BPE vocab from {}.", unsafe { BPE_VOCAB_PATH.as_str() });
-        let tokenizer = Tokenizer::load_bpe(unsafe { BPE_VOCAB_PATH.as_str() })
+        println!("Loading BPE vocab from {}...", unsafe { (&BPE_VOCAB_PATH).as_str() });
+        debug!("Fast path: Loading BPE vocab from {}.", unsafe { (&BPE_VOCAB_PATH).as_str() });
+        let tokenizer = Tokenizer::load_bpe(unsafe { (&BPE_VOCAB_PATH).as_str() })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
         println!("Loaded BPE vocab ({} tokens)", tokenizer.vocab_size);
         debug!("Fast path: Loaded BPE vocab with {} tokens.", tokenizer.vocab_size);
@@ -497,18 +497,18 @@ fn main() -> std::io::Result<()> {
         debug!("Training data loaded, size: {} characters.", training_text.len());
 
         let tokenizer = if let Some(target) = bpe_vocab_size {
-            if Path::new(unsafe { BPE_VOCAB_PATH.as_str() }).exists() {
-                println!("Loading BPE vocab from {}...", unsafe { BPE_VOCAB_PATH.as_str() });
-                debug!("Attempting to load BPE vocab from {}.", unsafe { BPE_VOCAB_PATH.as_str() });
-                match Tokenizer::load_bpe(unsafe { BPE_VOCAB_PATH.as_str() }) {
+            if Path::new(unsafe { (&BPE_VOCAB_PATH).as_str() }).exists() {
+                println!("Loading BPE vocab from {}...", unsafe { (&BPE_VOCAB_PATH).as_str() });
+                debug!("Attempting to load BPE vocab from {}.", unsafe { (&BPE_VOCAB_PATH).as_str() });
+                match Tokenizer::load_bpe(unsafe { (&BPE_VOCAB_PATH).as_str() }) {
                     Ok(t)  => { println!("Loaded BPE vocab ({} tokens)", t.vocab_size); debug!("Loaded BPE vocab with {} tokens.", t.vocab_size); t }
                     Err(e) => {
-                        eprintln!("Failed to load {}: {}. Retraining...", unsafe { BPE_VOCAB_PATH.as_str() }, e);
-                        warn!("Failed to load BPE vocab {}: {}. Retraining.", unsafe { BPE_VOCAB_PATH.as_str() }, e);
+                        eprintln!("Failed to load {}: {}. Retraining...", unsafe { (&BPE_VOCAB_PATH).as_str() }, e);
+                        warn!("Failed to load BPE vocab {}: {}. Retraining.", unsafe { (&BPE_VOCAB_PATH).as_str() }, e);
                         let t = Tokenizer::from_text_bpe(&training_text, target);
-                        t.save_bpe(unsafe { BPE_VOCAB_PATH.as_str() })?;
-                        println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
-                        debug!("Retrained and saved BPE vocab with {} tokens to {}.", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
+                        t.save_bpe(unsafe { (&BPE_VOCAB_PATH).as_str() })?;
+                        println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { (&BPE_VOCAB_PATH).as_str() });
+                        debug!("Retrained and saved BPE vocab with {} tokens to {}.", t.vocab_size, unsafe { (&BPE_VOCAB_PATH).as_str() });
                         t
                     }
                 }
@@ -516,9 +516,9 @@ fn main() -> std::io::Result<()> {
                 println!("Training BPE tokenizer (target vocab: {})...", target);
                 info!("Training new BPE tokenizer with target vocab: {}.", target);
                 let t = Tokenizer::from_text_bpe(&training_text, target);
-                t.save_bpe(unsafe { BPE_VOCAB_PATH.as_str() })?;
-                println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
-                debug!("New BPE vocab ({} tokens) saved to {}.", t.vocab_size, unsafe { BPE_VOCAB_PATH.as_str() });
+                t.save_bpe(unsafe { (&BPE_VOCAB_PATH).as_str() })?;
+                println!("BPE vocab ({} tokens) saved to {}", t.vocab_size, unsafe { (&BPE_VOCAB_PATH).as_str() });
+                debug!("New BPE vocab ({} tokens) saved to {}.", t.vocab_size, unsafe { (&BPE_VOCAB_PATH).as_str() });
                 t
             }
         } else {
