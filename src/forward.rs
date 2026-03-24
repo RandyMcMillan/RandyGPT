@@ -97,7 +97,7 @@ pub fn forward(
             linear_fwd(&attn_out, &model.layers[li].wo, unsafe { N_EMBD }, unsafe { N_EMBD }, &mut attn_proj);
             if training {
                 if let Some(r) = rng.as_deref_mut() {
-                    apply_dropout(&mut attn_proj, unsafe { DROPOUT_RATE }, r);
+                    apply_dropout(&mut attn_proj, DROPOUT_RATE, r);
                 }
             }
             for i in 0..unsafe { N_EMBD } { x[i] = attn_proj[i] + act.x_in[li][i]; }
@@ -123,7 +123,7 @@ pub fn forward(
             linear_fwd(&h2, &model.layers[li].fc2, unsafe { N_EMBD }, unsafe { MLP_DIM }, &mut mlp_out);
             if training {
                 if let Some(r) = rng.as_deref_mut() {
-                    apply_dropout(&mut mlp_out, unsafe { DROPOUT_RATE }, r);
+                    apply_dropout(&mut mlp_out, DROPOUT_RATE, r);
                 }
             }
             for i in 0..unsafe { N_EMBD } { x[i] = mlp_out[i] + act.x_mid[li][i]; }
@@ -330,7 +330,7 @@ pub fn forward_candle_train(
         // Output projection + residual: flatten → matmul → reshape → add
         let attn_2d = attn_out.reshape((batch * seq_len, unsafe { N_EMBD }))?;
         let proj = attn_2d.matmul(&layer.wo.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
-        let proj = if training { candle_nn::ops::dropout(&proj, unsafe { DROPOUT_RATE })? } else { proj };
+        let proj = if training { candle_nn::ops::dropout(&proj, DROPOUT_RATE)? } else { proj };
         x = (x + proj)?;                                              // residual
 
         // MLP pre-norm
@@ -348,7 +348,7 @@ pub fn forward_candle_train(
         let h2  = h1r.mul(&h1r)?;                                     // squared ReLU [B, T, 4D]
         let h2_2d = h2.reshape((batch * seq_len, unsafe { MLP_DIM }))?;
         let mlp_out = h2_2d.matmul(&layer.fc2.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
-        let mlp_out = if training { candle_nn::ops::dropout(&mlp_out, unsafe { DROPOUT_RATE })? } else { mlp_out };
+        let mlp_out = if training { candle_nn::ops::dropout(&mlp_out, DROPOUT_RATE)? } else { mlp_out };
         x = (x + mlp_out)?;
     }
 
