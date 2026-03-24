@@ -84,7 +84,7 @@ pub fn forward(
                 let mut weights = vec![0.0; cache_len];
                 softmax_fwd(&scores, cache_len, &mut weights, 1.0);
                 for t in 0..cache_len {
-                    for j in 0..HEAD_DIM {
+                    for j in 0..unsafe { HEAD_DIM } {
                         attn_out[hs + j] += weights[t] * kv_cache[li][t].1[hs + j];
                     }
                 }
