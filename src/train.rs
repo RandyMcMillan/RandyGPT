@@ -721,7 +721,7 @@ pub fn train_candle(
     println!("=== Starting Training (Metal GPU via Candle) ===");
     if iter_start > 0 { println!("Resuming from iteration {}", iter_start); }
     println!("Iterations: {} → {}", iter_start, iterations);
-    println!("Batch size: {} × {} accum steps = {} effective", BATCH_SIZE , GRAD_ACCUM_STEPS , BATCH_SIZE  * GRAD_ACCUM_STEPS );
+    println!("Batch size: {} × {} accum steps = {} effective", unsafe { BATCH_SIZE }, unsafe { GRAD_ACCUM_STEPS }, unsafe { BATCH_SIZE } * unsafe { GRAD_ACCUM_STEPS });
     println!("Learning rate: {} → {}", max_lr, min_lr);
     println!();
 
@@ -750,27 +750,27 @@ pub fn train_candle(
         let mut batch_loss_sum = 0.0f32;
         let mut accum_count = 0usize;
 
-        for _ in 0..GRAD_ACCUM_STEPS {
-            let mut tok_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE  * BLOCK_SIZE );
-            let mut tgt_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE  * BLOCK_SIZE );
-            for _ in 0..BATCH_SIZE {
-                if data.len() <= BLOCK_SIZE  + 1 { continue; }
+        for _ in 0..unsafe { GRAD_ACCUM_STEPS } {
+            let mut tok_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
+            let mut tgt_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
+            for _ in 0..unsafe { BATCH_SIZE } {
+                if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
                 let start = if !valid_starts.is_empty() {
                     valid_starts[rng.choice(valid_starts.len())]
                 } else {
-                    rng.choice(data.len() - BLOCK_SIZE  - 1)
+                    rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
                 };
-                for t in 0..BLOCK_SIZE {
+                for t in 0..unsafe { BLOCK_SIZE } {
                     tok_data.push(data[start + t] as u32);
                     tgt_data.push(data[start + t + 1] as u32);
                 }
             }
-            let actual_batch = tok_data.len() / BLOCK_SIZE ;
+            let actual_batch = tok_data.len() / unsafe { BLOCK_SIZE };
             if actual_batch == 0 { continue; }
 
-            let tokens  = Tensor::from_vec(tok_data, (actual_batch, BLOCK_SIZE ), &device)
+            let tokens  = Tensor::from_vec(tok_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
                 .unwrap_or_else(|e| panic!("token tensor: {}", e));
-            let targets = Tensor::from_vec(tgt_data, (actual_batch, BLOCK_SIZE ), &device)
+            let targets = Tensor::from_vec(tgt_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
                 .unwrap_or_else(|e| panic!("target tensor: {}", e));
 
             let loss = forward_candle_train(&tokens, &targets, model, true)
