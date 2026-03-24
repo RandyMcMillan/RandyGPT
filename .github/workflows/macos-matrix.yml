@@ -49,7 +49,7 @@ jobs:
           # Requires a checkpoint, so we'll quickly train a tiny one first
           echo "hello world" > train_gen_temp.txt
           cargo run -- --iters 1 --train-file train_gen_temp.txt --vocab vocab_gen_temp.json --bpe 100 --checkpoint checkpoint_gen_temp
-          cargo run -- --generate "hello" --max-tokens 5 --resume checkpoint_gen_temp
+          cargo run -- --generate "hello" --max-tokens 5 --resume checkpoint_gen_temp --bpe 100
         else
           cargo test --verbose -- --${{ matrix.feature }}
         fi
