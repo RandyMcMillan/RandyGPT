@@ -44,7 +44,7 @@ impl Default for Cli {
             serve_addr: None,
             api_key: None,
             train_file: "train.txt".to_string(),
-            vocab_path: unsafe { (&*(&raw const BPE_VOCAB_PATH)).clone() },
+            vocab_path: unsafe { (*(&raw const BPE_VOCAB_PATH)).clone() },
             checkpoint_prefix_arg: None,
             fine_tune: false,
             gen_max_tokens: 200,
@@ -226,7 +226,7 @@ pub fn parse_args() -> Cli {
                 println!("\nTRAINING:");
                 println!("  --iters N          Training iterations (default: {})", MAX_ITERS );
                 println!("  --train-file PATH  Training text file (default: train.txt)");
-                println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { (&*(&raw const BPE_VOCAB_PATH)).as_str() });
+                println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { (*(&raw const BPE_VOCAB_PATH)).as_str() });
                 println!("  --checkpoint NAME  Checkpoint filename prefix (default: checkpoint)");
                 println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", BPE_VOCAB_SIZE );
                 println!("                     If N is omitted, uses default BPE_VOCAB_SIZE.");
