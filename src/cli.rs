@@ -33,7 +33,7 @@ pub struct Cli {
 impl Default for Cli {
     fn default() -> Self {
         Self {
-            iterations: unsafe { MAX_ITERS },
+            iterations: MAX_ITERS ,
             resume_path: None,
             lr_override: None,
             min_lr_override: None,
@@ -93,7 +93,7 @@ pub fn parse_args() -> Cli {
             "--iters" => {
                 i += 1;
                 if i < filtered_args.len() {
-                    cli.iterations = filtered_args[i].parse().unwrap_or(unsafe { MAX_ITERS });
+                    cli.iterations = filtered_args[i].parse().unwrap_or(MAX_ITERS );
                     debug!("Parsed --iters: {}", cli.iterations);
                 }
             }
@@ -124,10 +124,10 @@ pub fn parse_args() -> Cli {
             "--bpe" => {
                 if i + 1 < filtered_args.len() && !filtered_args[i + 1].starts_with("--") {
                     i += 1;
-                    cli.bpe_vocab_size = Some(filtered_args[i].parse().unwrap_or(unsafe { BPE_VOCAB_SIZE }));
+                    cli.bpe_vocab_size = Some(filtered_args[i].parse().unwrap_or(BPE_VOCAB_SIZE ));
                     debug!("Parsed --bpe with custom size: {:?}", cli.bpe_vocab_size);
                 } else {
-                    cli.bpe_vocab_size = Some(unsafe { BPE_VOCAB_SIZE });
+                    cli.bpe_vocab_size = Some(BPE_VOCAB_SIZE );
                     debug!("Parsed --bpe with default size: {:?}", cli.bpe_vocab_size);
                 }
             }
@@ -224,11 +224,11 @@ pub fn parse_args() -> Cli {
                 println!("  --model-deep       Apply deep model (192-dim, 6-head, 16-layer, batch 16)");
                 println!("  --model-xl         Apply extra-large model (384-dim, 8-head, 8-layer, batch 64)");
                 println!("\nTRAINING:");
-                println!("  --iters N          Training iterations (default: {})", unsafe { MAX_ITERS });
+                println!("  --iters N          Training iterations (default: {})", MAX_ITERS );
                 println!("  --train-file PATH  Training text file (default: train.txt)");
                 println!("  --vocab PATH       BPE vocab JSON file (default: {})", unsafe { BPE_VOCAB_PATH.as_str() });
                 println!("  --checkpoint NAME  Checkpoint filename prefix (default: checkpoint)");
-                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", unsafe { BPE_VOCAB_SIZE });
+                println!("  --bpe [N]          Use BPE tokenizer, optional target vocab size (default: {})", BPE_VOCAB_SIZE );
                 println!("                     If N is omitted, uses default BPE_VOCAB_SIZE.");
                 println!("  --resume [PATH]    Resume from checkpoint (default: <prefix>_best.bin,");
                 println!("                     where <prefix> is from --checkpoint or train-file).");
