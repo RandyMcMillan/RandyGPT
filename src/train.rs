@@ -207,7 +207,7 @@ pub fn train(
     println!("Iterations: {} → {}", iter_start, iterations);
     println!("Batch size: {}", unsafe { BATCH_SIZE });
     println!("Learning rate: {} → {}", max_lr, min_lr);
-    println!("Gradient clipping: {}", unsafe { GRAD_CLIP });
+    println!("Gradient clipping: {}", GRAD_CLIP );
     println!("Cores available: {}", rayon::current_num_threads());
     println!();
 
@@ -537,16 +537,16 @@ pub fn train(
         };
 
         // Gradient clipping
-        clip_gradients(&mut model.d_wte, unsafe { GRAD_CLIP });
-        clip_gradients(&mut model.d_wpe, unsafe { GRAD_CLIP });
-        clip_gradients(&mut model.d_lm_head, unsafe { GRAD_CLIP });
+        clip_gradients(&mut model.d_wte, GRAD_CLIP );
+        clip_gradients(&mut model.d_wpe, GRAD_CLIP );
+        clip_gradients(&mut model.d_lm_head, GRAD_CLIP );
         for li in 0..unsafe { N_LAYER } {
-            clip_gradients(&mut model.layers[li].d_wq,  unsafe { GRAD_CLIP });
-            clip_gradients(&mut model.layers[li].d_wk,  unsafe { GRAD_CLIP });
-            clip_gradients(&mut model.layers[li].d_wv,  unsafe { GRAD_CLIP });
-            clip_gradients(&mut model.layers[li].d_wo,  unsafe { GRAD_CLIP });
-            clip_gradients(&mut model.layers[li].d_fc1, unsafe { GRAD_CLIP });
-            clip_gradients(&mut model.layers[li].d_fc2, unsafe { GRAD_CLIP });
+            clip_gradients(&mut model.layers[li].d_wq,  GRAD_CLIP );
+            clip_gradients(&mut model.layers[li].d_wk,  GRAD_CLIP );
+            clip_gradients(&mut model.layers[li].d_wv,  GRAD_CLIP );
+            clip_gradients(&mut model.layers[li].d_wo,  GRAD_CLIP );
+            clip_gradients(&mut model.layers[li].d_fc1, GRAD_CLIP );
+            clip_gradients(&mut model.layers[li].d_fc2, GRAD_CLIP );
         }
 
         // Adam optimizer update
@@ -596,21 +596,20 @@ pub fn train(
 
                 // ReduceLROnPlateau: reduce max_lr on patience exhaustion,
                 // hard-stop only after MAX_LR_REDUCTIONS consecutive reductions.
-                if unsafe { EARLY_STOP_PATIENCE } > 0 {
+                if EARLY_STOP_PATIENCE > 0 {
                     if val_loss < best_val_loss {
                         best_val_loss  = val_loss;
                         patience_count = 0;
                     } else {
                         patience_count += 1;
-                        if patience_count >= unsafe { EARLY_STOP_PATIENCE } {
-                            if lr_reductions < unsafe { MAX_LR_REDUCTIONS } {
-                                current_max_lr = (current_max_lr * unsafe { LR_REDUCTION_FACTOR }).max(min_lr);
+                        if patience_count >= EARLY_STOP_PATIENCE {
+                            if lr_reductions < MAX_LR_REDUCTIONS {
+                                current_max_lr = (current_max_lr * LR_REDUCTION_FACTOR ).max(min_lr);
                                 lr_reductions += 1;
                                 patience_count = 0;
                                 println!(
                                     "  → Plateau: LR reduced to {:.2e} (reduction {}/{})",
-                                    current_max_lr, lr_reductions, unsafe { MAX_LR_REDUCTIONS }
-                                );
+                                    current_max_lr, lr_reductions, MAX_LR_REDUCTIONS )
                             } else {
                                 stop_early = true;
                             }
@@ -618,8 +617,8 @@ pub fn train(
                     }
                 }
 
-                let patience_str = if unsafe { EARLY_STOP_PATIENCE } > 0 {
-                    format!(" | Pat: {}/{} LRx{}", patience_count, unsafe { EARLY_STOP_PATIENCE }, lr_reductions)
+                let patience_str = if EARLY_STOP_PATIENCE > 0 {
+                    format!(" | Pat: {}/{} LRx{}", patience_count, EARLY_STOP_PATIENCE , lr_reductions)
                 } else {
                     String::new()
                 };
@@ -646,7 +645,7 @@ pub fn train(
                 let avg_ms  = if iter_count > 0 { total_iter_ms as f32 / iter_count as f32 } else { 0.0 };
                 println!();
                 println!("Early stopping: val loss hasn't improved for {} eval intervals ({} iters).",
-                    unsafe { EARLY_STOP_PATIENCE }, unsafe { EARLY_STOP_PATIENCE } * unsafe { EVAL_INTERVAL });
+                    EARLY_STOP_PATIENCE , EARLY_STOP_PATIENCE  * EVAL_INTERVAL );
                 println!("Best val loss was {:.4} @{}. Saving checkpoint and stopping.", best_loss, best_iter);
                 println!("Total time: {:.1}s | Avg: {:.0}ms/iter", elapsed, avg_ms);
                 flush_checkpoint(&format!("{}.bin", checkpoint_prefix), &ckpt_buf)
@@ -722,7 +721,7 @@ pub fn train_candle(
     println!("=== Starting Training (Metal GPU via Candle) ===");
     if iter_start > 0 { println!("Resuming from iteration {}", iter_start); }
     println!("Iterations: {} → {}", iter_start, iterations);
-    println!("Batch size: {} × {} accum steps = {} effective", unsafe { BATCH_SIZE }, unsafe { GRAD_ACCUM_STEPS }, unsafe { BATCH_SIZE } * unsafe { GRAD_ACCUM_STEPS });
+    println!("Batch size: {} × {} accum steps = {} effective", BATCH_SIZE , GRAD_ACCUM_STEPS , BATCH_SIZE  * GRAD_ACCUM_STEPS );
     println!("Learning rate: {} → {}", max_lr, min_lr);
     println!();
 
@@ -751,27 +750,27 @@ pub fn train_candle(
         let mut batch_loss_sum = 0.0f32;
         let mut accum_count = 0usize;
 
-        for _ in 0..unsafe { GRAD_ACCUM_STEPS } {
-            let mut tok_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
-            let mut tgt_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
-            for _ in 0..unsafe { BATCH_SIZE } {
-                if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
+        for _ in 0..GRAD_ACCUM_STEPS {
+            let mut tok_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE  * BLOCK_SIZE );
+            let mut tgt_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE  * BLOCK_SIZE );
+            for _ in 0..BATCH_SIZE {
+                if data.len() <= BLOCK_SIZE  + 1 { continue; }
                 let start = if !valid_starts.is_empty() {
                     valid_starts[rng.choice(valid_starts.len())]
                 } else {
-                    rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
+                    rng.choice(data.len() - BLOCK_SIZE  - 1)
                 };
-                for t in 0..unsafe { BLOCK_SIZE } {
+                for t in 0..BLOCK_SIZE {
                     tok_data.push(data[start + t] as u32);
                     tgt_data.push(data[start + t + 1] as u32);
                 }
             }
-            let actual_batch = tok_data.len() / unsafe { BLOCK_SIZE };
+            let actual_batch = tok_data.len() / BLOCK_SIZE ;
             if actual_batch == 0 { continue; }
 
-            let tokens  = Tensor::from_vec(tok_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
+            let tokens  = Tensor::from_vec(tok_data, (actual_batch, BLOCK_SIZE ), &device)
                 .unwrap_or_else(|e| panic!("token tensor: {}", e));
-            let targets = Tensor::from_vec(tgt_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
+            let targets = Tensor::from_vec(tgt_data, (actual_batch, BLOCK_SIZE ), &device)
                 .unwrap_or_else(|e| panic!("target tensor: {}", e));
 
             let loss = forward_candle_train(&tokens, &targets, model, true)
@@ -838,21 +837,20 @@ pub fn train_candle(
                 // ReduceLROnPlateau: reduce max_lr on patience exhaustion,
                 // hard-stop only after MAX_LR_REDUCTIONS consecutive reductions.
                 new_best = val_loss < best_val_loss;
-                if unsafe { EARLY_STOP_PATIENCE } > 0 {
+                if EARLY_STOP_PATIENCE > 0 {
                     if new_best {
                         best_val_loss  = val_loss;
                         patience_count = 0;
                     } else {
                         patience_count += 1;
-                        if patience_count >= unsafe { EARLY_STOP_PATIENCE } {
-                            if lr_reductions < unsafe { MAX_LR_REDUCTIONS } {
-                                current_max_lr = (current_max_lr * unsafe { LR_REDUCTION_FACTOR }).max(min_lr);
+                        if patience_count >= EARLY_STOP_PATIENCE {
+                            if lr_reductions < MAX_LR_REDUCTIONS {
+                                current_max_lr = (current_max_lr * LR_REDUCTION_FACTOR ).max(min_lr);
                                 lr_reductions += 1;
                                 patience_count = 0;
                                 println!(
                                     "  → Plateau: LR reduced to {:.2e} (reduction {}/{})",
-                                    current_max_lr, lr_reductions, unsafe { MAX_LR_REDUCTIONS }
-                                );
+                                    current_max_lr, lr_reductions, MAX_LR_REDUCTIONS )
                             } else {
                                 stop_early = true;
                             }
@@ -860,8 +858,8 @@ pub fn train_candle(
                     }
                 }
 
-                let patience_str = if unsafe { EARLY_STOP_PATIENCE } > 0 {
-                    format!(" | Pat: {}/{} LRx{}", patience_count, unsafe { EARLY_STOP_PATIENCE }, lr_reductions)
+                let patience_str = if EARLY_STOP_PATIENCE > 0 {
+                    format!(" | Pat: {}/{} LRx{}", patience_count, EARLY_STOP_PATIENCE , lr_reductions)
                 } else {
                     String::new()
                 };
@@ -892,7 +890,7 @@ pub fn train_candle(
                 let avg_ms  = if iter_count > 0 { total_iter_ms as f32 / iter_count as f32 } else { 0.0 };
                 println!();
                 println!("Early stopping: val loss hasn't improved for {} eval intervals ({} iters).",
-                    unsafe { EARLY_STOP_PATIENCE }, unsafe { EARLY_STOP_PATIENCE } * unsafe { EVAL_INTERVAL });
+                    EARLY_STOP_PATIENCE , EARLY_STOP_PATIENCE  * EVAL_INTERVAL );
                 println!("Best val loss was {:.4}. Saving checkpoint and stopping.", best_val_loss);
                 println!("Total time: {:.1}s | Avg: {:.0}ms/iter", elapsed, avg_ms);
                 flush_checkpoint(&format!("{}.bin", checkpoint_prefix), &ckpt_buf)
