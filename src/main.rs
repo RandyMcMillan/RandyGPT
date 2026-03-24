@@ -108,7 +108,7 @@ fn main() -> std::io::Result<()> {
         }
         if let Some(bpe_vocab_path) = randy_gpt_config.bpe_vocab_path {
             BPE_VOCAB_PATH = bpe_vocab_path;
-        } else if BPE_VOCAB_PATH.is_empty() {
+        } else if unsafe { BPE_VOCAB_PATH }.is_empty() {
             BPE_VOCAB_PATH = "vocab.json".to_string(); // Default if not in TOML and not already set
         }
 
@@ -189,8 +189,8 @@ fn main() -> std::io::Result<()> {
     let gen_top_k:               f32  = cli.gen_top_k;
     
     // These need to be mutable here for the training loop
-    let mut lr     = lr_override.unwrap_or(unsafe { LEARNING_RATE });
-    let mut min_lr = min_lr_override.unwrap_or(unsafe { MIN_LEARNING_RATE });
+    let lr     = lr_override.unwrap_or(LEARNING_RATE );
+    let min_lr = min_lr_override.unwrap_or(MIN_LEARNING_RATE );
 
     // Derive checkpoint prefix: explicit --checkpoint > stem of --train-file > "checkpoint"
     let checkpoint_prefix = checkpoint_prefix_arg.unwrap_or_else(|| {
@@ -287,8 +287,8 @@ fn main() -> std::io::Result<()> {
         }
         debug!("Selected model size: {}", model_size_name);
         println!("=== Enhanced randyGPT ===");
-        println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, N_LAYER, N_HEAD, N_EMBD);
-        println!("Block size: {}, Vocab size: up to {}", BLOCK_SIZE, MAX_VOCAB);
+        println!("Model: {} — {} layers, {} heads, {}-dim", model_size_name, unsafe { N_LAYER }, unsafe { N_HEAD }, unsafe { N_EMBD });
+        println!("Block size: {}, Vocab size: up to {}", unsafe { BLOCK_SIZE }, unsafe { MAX_VOCAB });
         println!();
     }
 
@@ -439,7 +439,7 @@ fn main() -> std::io::Result<()> {
     // skip loading the raw training text entirely (saves ~110MB for large corpora).
     let token_cache_path = format!("{}.tokens.bin", train_file);
     let have_token_cache = Path::new(&token_cache_path).exists();
-    let have_bpe_vocab   = bpe_vocab_size.is_some() && Path::new(unsafe { BPE_VOCAB_PATH.as_str() }).exists();
+    let have_bpe_vocab   = bpe_vocab_size.is_some() && unsafe { Path::new(BPE_VOCAB_PATH.as_str()).exists() };
     debug!("Token cache path: {}, exists: {}", token_cache_path, have_token_cache);
     debug!("BPE vocab path: {}, exists: {}", unsafe { BPE_VOCAB_PATH.as_str() }, have_bpe_vocab);
 
