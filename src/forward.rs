@@ -36,27 +36,27 @@ pub fn forward(
         let mut act = PosActs::new();
 
         // Token + position embedding (use abs_pos for wpe)
-        for i in 0..N_EMBD {
-            act.x_embed[i] = model.wte[tok * N_EMBD + i] + model.wpe[abs_pos * N_EMBD + i];
+        for i in 0..unsafe { N_EMBD } {
+            act.x_embed[i] = model.wte[tok * unsafe { N_EMBD } + i] + model.wpe[abs_pos * unsafe { N_EMBD } + i];
         }
 
         let mut x = act.x_embed.clone();
 
-        for li in 0..N_LAYER {
+        for li in 0..unsafe { N_LAYER } {
             act.x_in[li] = x.clone();
 
             // Attention pre-norm
-            let mut xn = vec![0.0; N_EMBD];
-            rmsnorm_fwd(&x, N_EMBD, &mut xn);
+            let mut xn = vec![0.0; unsafe { N_EMBD }];
+            rmsnorm_fwd(&x, unsafe { N_EMBD }, &mut xn);
             act.xn_attn[li] = xn.clone();
 
             // Q, K, V projections
-            let mut q = vec![0.0; N_EMBD];
-            let mut k = vec![0.0; N_EMBD];
-            let mut v = vec![0.0; N_EMBD];
-            linear_fwd(&xn, &model.layers[li].wq, N_EMBD, N_EMBD, &mut q);
-            linear_fwd(&xn, &model.layers[li].wk, N_EMBD, N_EMBD, &mut k);
-            linear_fwd(&xn, &model.layers[li].wv, N_EMBD, N_EMBD, &mut v);
+            let mut q = vec![0.0; unsafe { N_EMBD }];
+            let mut k = vec![0.0; unsafe { N_EMBD }];
+            let mut v = vec![0.0; unsafe { N_EMBD }];
+            linear_fwd(&xn, &model.layers[li].wq, unsafe { N_EMBD }, unsafe { N_EMBD }, &mut q);
+            linear_fwd(&xn, &model.layers[li].wk, unsafe { N_EMBD }, unsafe { N_EMBD }, &mut k);
+            linear_fwd(&xn, &model.layers[li].wv, unsafe { N_EMBD }, unsafe { N_EMBD }, &mut v);
 
             act.q[li] = q.clone();
             act.k[li] = k.clone();
@@ -69,14 +69,14 @@ pub fn forward(
 
             // Causal multi-head attention over all cached positions 0..=abs_pos
             let cache_len = abs_pos + 1;
-            let mut attn_out = vec![0.0; N_EMBD];
-            let scale = 1.0 / (HEAD_DIM as f32).sqrt();
+            let mut attn_out = vec![0.0; unsafe { N_EMBD }];
+            let scale = 1.0 / (unsafe { HEAD_DIM } as f32).sqrt();
 
-            for h in 0..N_HEAD {
-                let hs = h * HEAD_DIM;
+            for h in 0..unsafe { N_HEAD } {
+                let hs = h * unsafe { HEAD_DIM };
                 let mut scores = vec![0.0; cache_len];
                 for t in 0..cache_len {
-                    let dot: f32 = (0..HEAD_DIM)
+                    let dot: f32 = (0..unsafe { HEAD_DIM })
                         .map(|j| q[hs + j] * kv_cache[li][t].0[hs + j])
                         .sum();
                     scores[t] = dot * scale;
@@ -93,46 +93,46 @@ pub fn forward(
             act.attn_out[li] = attn_out.clone();
 
             // Output projection + optional dropout + residual
-            let mut attn_proj = vec![0.0; N_EMBD];
-            linear_fwd(&attn_out, &model.layers[li].wo, N_EMBD, N_EMBD, &mut attn_proj);
+            let mut attn_proj = vec![0.0; unsafe { N_EMBD }];
+            linear_fwd(&attn_out, &model.layers[li].wo, unsafe { N_EMBD }, unsafe { N_EMBD }, &mut attn_proj);
             if training {
                 if let Some(r) = rng.as_deref_mut() {
-                    apply_dropout(&mut attn_proj, DROPOUT_RATE, r);
+                    apply_dropout(&mut attn_proj, unsafe { DROPOUT_RATE }, r);
                 }
             }
-            for i in 0..N_EMBD { x[i] = attn_proj[i] + act.x_in[li][i]; }
+            for i in 0..unsafe { N_EMBD } { x[i] = attn_proj[i] + act.x_in[li][i]; }
             act.x_mid[li] = x.clone();
 
             // MLP pre-norm
-            let mut xn_mlp = vec![0.0; N_EMBD];
-            rmsnorm_fwd(&x, N_EMBD, &mut xn_mlp);
+            let mut xn_mlp = vec![0.0; unsafe { N_EMBD }];
+            rmsnorm_fwd(&x, unsafe { N_EMBD }, &mut xn_mlp);
             act.xn_mlp[li] = xn_mlp.clone();
 
             // fc1 → squared ReLU → fc2 → optional dropout → residual
-            let mut h1 = vec![0.0; MLP_DIM];
-            linear_fwd(&xn_mlp, &model.layers[li].fc1, MLP_DIM, N_EMBD, &mut h1);
+            let mut h1 = vec![0.0; unsafe { MLP_DIM }];
+            linear_fwd(&xn_mlp, &model.layers[li].fc1, unsafe { MLP_DIM }, unsafe { N_EMBD }, &mut h1);
             act.mlp_pre[li] = h1.clone();
 
-            let mut h2 = vec![0.0; MLP_DIM];
-            for i in 0..MLP_DIM {
+            let mut h2 = vec![0.0; unsafe { MLP_DIM }];
+            for i in 0..unsafe { MLP_DIM } {
                 h2[i] = if h1[i] > 0.0 { h1[i] * h1[i] } else { 0.0 };
             }
             act.mlp_post[li] = h2.clone();
 
-            let mut mlp_out = vec![0.0; N_EMBD];
-            linear_fwd(&h2, &model.layers[li].fc2, N_EMBD, MLP_DIM, &mut mlp_out);
+            let mut mlp_out = vec![0.0; unsafe { N_EMBD }];
+            linear_fwd(&h2, &model.layers[li].fc2, unsafe { N_EMBD }, unsafe { MLP_DIM }, &mut mlp_out);
             if training {
                 if let Some(r) = rng.as_deref_mut() {
-                    apply_dropout(&mut mlp_out, DROPOUT_RATE, r);
+                    apply_dropout(&mut mlp_out, unsafe { DROPOUT_RATE }, r);
                 }
             }
-            for i in 0..N_EMBD { x[i] = mlp_out[i] + act.x_mid[li][i]; }
+            for i in 0..unsafe { N_EMBD } { x[i] = mlp_out[i] + act.x_mid[li][i]; }
         }
 
         act.x_out = x.clone();
 
         let mut logits = vec![0.0; model.vocab_size];
-        linear_fwd(&x, &model.lm_head, model.vocab_size, N_EMBD, &mut logits);
+        linear_fwd(&x, &model.lm_head, model.vocab_size, unsafe { N_EMBD }, &mut logits);
 
         all_logits.push(logits);
         all_acts.push(act);
@@ -163,91 +163,91 @@ pub fn forward_metal_logits(tokens: &[usize], model: &GPTModel) -> Vec<Vec<f32>>
     };
 
     // Build input embeddings [seq_len, N_EMBD]
-    let mut x_flat = vec![0.0f32; seq_len * N_EMBD];
+    let mut x_flat = vec![0.0f32; seq_len * unsafe { N_EMBD }];
     for (pos, &tok) in tokens.iter().enumerate() {
-        for i in 0..N_EMBD {
-            x_flat[pos * N_EMBD + i] =
-                model.wte[tok * N_EMBD + i] + model.wpe[pos * N_EMBD + i];
+        for i in 0..unsafe { N_EMBD } {
+            x_flat[pos * unsafe { N_EMBD } + i] =
+                model.wte[tok * unsafe { N_EMBD } + i] + model.wpe[pos * unsafe { N_EMBD } + i];
         }
     }
 
-    for li in 0..N_LAYER {
+    for li in 0..unsafe { N_LAYER } {
         // Attention pre-norm (CPU — cheap elementwise)
-        let mut xn_flat = vec![0.0f32; seq_len * N_EMBD];
+        let mut xn_flat = vec![0.0f32; seq_len * unsafe { N_EMBD }];
         for pos in 0..seq_len {
             rmsnorm_fwd(
-                &x_flat[pos * N_EMBD..(pos + 1) * N_EMBD],
-                N_EMBD,
-                &mut xn_flat[pos * N_EMBD..(pos + 1) * N_EMBD],
+                &x_flat[pos * unsafe { N_EMBD }..(pos + 1) * unsafe { N_EMBD }],
+                unsafe { N_EMBD },
+                &mut xn_flat[pos * unsafe { N_EMBD }..(pos + 1) * unsafe { N_EMBD }],
             );
         }
 
         // Q, K, V on Metal
-        let q_flat = metal_mm(&xn_flat, seq_len, N_EMBD, &model.layers[li].wq, N_EMBD);
-        let k_flat = metal_mm(&xn_flat, seq_len, N_EMBD, &model.layers[li].wk, N_EMBD);
-        let v_flat = metal_mm(&xn_flat, seq_len, N_EMBD, &model.layers[li].wv, N_EMBD);
+        let q_flat = metal_mm(&xn_flat, seq_len, unsafe { N_EMBD }, &model.layers[li].wq, unsafe { N_EMBD });
+        let k_flat = metal_mm(&xn_flat, seq_len, unsafe { N_EMBD }, &model.layers[li].wk, unsafe { N_EMBD });
+        let v_flat = metal_mm(&xn_flat, seq_len, unsafe { N_EMBD }, &model.layers[li].wv, unsafe { N_EMBD });
 
         // Causal attention (CPU — O(T²·d) but T=64 is small)
-        let scale = 1.0 / (HEAD_DIM as f32).sqrt();
-        let mut attn_out = vec![0.0f32; seq_len * N_EMBD];
+        let scale = 1.0 / (unsafe { HEAD_DIM } as f32).sqrt();
+        let mut attn_out = vec![0.0f32; seq_len * unsafe { N_EMBD }];
 
-        for h in 0..N_HEAD {
-            let hs = h * HEAD_DIM;
+        for h in 0..unsafe { N_HEAD } {
+            let hs = h * unsafe { HEAD_DIM };
             for pos in 0..seq_len {
                 let mut scores = vec![0.0f32; pos + 1];
                 for t in 0..=pos {
-                    let dot: f32 = (0..HEAD_DIM)
-                        .map(|j| q_flat[pos * N_EMBD + hs + j] * k_flat[t * N_EMBD + hs + j])
+                    let dot: f32 = (0..unsafe { HEAD_DIM })
+                        .map(|j| q_flat[pos * unsafe { N_EMBD } + hs + j] * k_flat[t * unsafe { N_EMBD } + hs + j])
                         .sum();
                     scores[t] = dot * scale;
                 }
                 let mut weights = vec![0.0f32; pos + 1];
                 softmax_fwd(&scores, pos + 1, &mut weights, 1.0);
                 for t in 0..=pos {
-                    for j in 0..HEAD_DIM {
-                        attn_out[pos * N_EMBD + hs + j] +=
-                            weights[t] * v_flat[t * N_EMBD + hs + j];
+                    for j in 0..unsafe { HEAD_DIM } {
+                        attn_out[pos * unsafe { N_EMBD } + hs + j] +=
+                            weights[t] * v_flat[t * unsafe { N_EMBD } + hs + j];
                     }
                 }
             }
         }
 
         // Output projection on Metal
-        let attn_proj = metal_mm(&attn_out, seq_len, N_EMBD, &model.layers[li].wo, N_EMBD);
+        let attn_proj = metal_mm(&attn_out, seq_len, unsafe { N_EMBD }, &model.layers[li].wo, unsafe { N_EMBD });
 
         // Residual
-        let mut x_mid = vec![0.0f32; seq_len * N_EMBD];
-        for i in 0..seq_len * N_EMBD { x_mid[i] = x_flat[i] + attn_proj[i]; }
+        let mut x_mid = vec![0.0f32; seq_len * unsafe { N_EMBD }];
+        for i in 0..seq_len * unsafe { N_EMBD } { x_mid[i] = x_flat[i] + attn_proj[i]; }
 
         // MLP pre-norm (CPU)
-        let mut xn_mlp = vec![0.0f32; seq_len * N_EMBD];
+        let mut xn_mlp = vec![0.0f32; seq_len * unsafe { N_EMBD }];
         for pos in 0..seq_len {
             rmsnorm_fwd(
-                &x_mid[pos * N_EMBD..(pos + 1) * N_EMBD],
-                N_EMBD,
-                &mut xn_mlp[pos * N_EMBD..(pos + 1) * N_EMBD],
+                &x_mid[pos * unsafe { N_EMBD }..(pos + 1) * unsafe { N_EMBD }],
+                unsafe { N_EMBD },
+                &mut xn_mlp[pos * unsafe { N_EMBD }..(pos + 1) * unsafe { N_EMBD }],
             );
         }
 
         // fc1 on Metal
-        let h1_flat = metal_mm(&xn_mlp, seq_len, N_EMBD, &model.layers[li].fc1, MLP_DIM);
+        let h1_flat = metal_mm(&xn_mlp, seq_len, unsafe { N_EMBD }, &model.layers[li].fc1, unsafe { MLP_DIM });
 
         // Squared ReLU (CPU — elementwise)
-        let mut h2_flat = vec![0.0f32; seq_len * MLP_DIM];
+        let mut h2_flat = vec![0.0f32; seq_len * unsafe { MLP_DIM }];
         for i in 0..h2_flat.len() {
             let v = h1_flat[i];
             h2_flat[i] = if v > 0.0 { v * v } else { 0.0 };
         }
 
         // fc2 on Metal
-        let mlp_out = metal_mm(&h2_flat, seq_len, MLP_DIM, &model.layers[li].fc2, N_EMBD);
+        let mlp_out = metal_mm(&h2_flat, seq_len, unsafe { MLP_DIM }, &model.layers[li].fc2, unsafe { N_EMBD });
 
         // MLP residual
-        for i in 0..seq_len * N_EMBD { x_flat[i] = x_mid[i] + mlp_out[i]; }
+        for i in 0..seq_len * unsafe { N_EMBD } { x_flat[i] = x_mid[i] + mlp_out[i]; }
     }
 
     // LM head on Metal
-    let logits_flat = metal_mm(&x_flat, seq_len, N_EMBD, &model.lm_head, model.vocab_size);
+    let logits_flat = metal_mm(&x_flat, seq_len, unsafe { N_EMBD }, &model.lm_head, model.vocab_size);
 
     logits_flat.chunks(model.vocab_size).map(|c| c.to_vec()).collect()
 }
@@ -275,7 +275,7 @@ pub fn forward_candle_train(
     // wte: [vocab, D], index per position → [B, T, D]
     let tok_flat = tokens.flatten_all()?;                             // [B*T]
     let tok_emb  = model.wte.as_tensor().index_select(&tok_flat, 0)? // [B*T, D]
-        .reshape((batch, seq_len, N_EMBD))?;
+        .reshape((batch, seq_len, unsafe { N_EMBD }))?;
 
     // wpe: [BLOCK_SIZE, D], slice first seq_len rows → [T, D] then broadcast
     let pos_emb = model.wpe.as_tensor().narrow(0, 0, seq_len)?       // [T, D]
@@ -291,7 +291,7 @@ pub fn forward_candle_train(
     let mask = Tensor::from_vec(mask_data, (1, 1, seq_len, seq_len), device)?; // [1,1,T,T]
 
     // ── Transformer layers ────────────────────────────────────────────
-    for li in 0..N_LAYER {
+    for li in 0..unsafe { N_LAYER } {
         let layer = &model.layers[li];
 
         // Attention pre-norm (RMSNorm: scale by 1/rms per token)
@@ -303,18 +303,18 @@ pub fn forward_candle_train(
         };
 
         // QKV projections: flatten [B,T,D]→[B*T,D], matmul [D,D]^T, reshape back
-        let xn_2d = xn.reshape((batch * seq_len, N_EMBD))?;
-        let q = xn_2d.matmul(&layer.wq.as_tensor().t()?)?.reshape((batch, seq_len, N_EMBD))?;
-        let k = xn_2d.matmul(&layer.wk.as_tensor().t()?)?.reshape((batch, seq_len, N_EMBD))?;
-        let v = xn_2d.matmul(&layer.wv.as_tensor().t()?)?.reshape((batch, seq_len, N_EMBD))?;
+        let xn_2d = xn.reshape((batch * seq_len, unsafe { N_EMBD }))?;
+        let q = xn_2d.matmul(&layer.wq.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
+        let k = xn_2d.matmul(&layer.wk.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
+        let v = xn_2d.matmul(&layer.wv.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
 
         // Reshape to multi-head: [B, T, H, Dh] → [B, H, T, Dh]
-        let q = q.reshape((batch, seq_len, N_HEAD, HEAD_DIM))?.transpose(1, 2)?.contiguous()?; // [B,H,T,Dh]
-        let k = k.reshape((batch, seq_len, N_HEAD, HEAD_DIM))?.transpose(1, 2)?.contiguous()?;
-        let v = v.reshape((batch, seq_len, N_HEAD, HEAD_DIM))?.transpose(1, 2)?.contiguous()?;
+        let q = q.reshape((batch, seq_len, unsafe { N_HEAD }, unsafe { HEAD_DIM }))?.transpose(1, 2)?.contiguous()?; // [B,H,T,Dh]
+        let k = k.reshape((batch, seq_len, unsafe { N_HEAD }, unsafe { HEAD_DIM }))?.transpose(1, 2)?.contiguous()?;
+        let v = v.reshape((batch, seq_len, unsafe { N_HEAD }, unsafe { HEAD_DIM }))?.transpose(1, 2)?.contiguous()?;
 
         // Attention scores: [B, H, T, T]
-        let scale_f = (HEAD_DIM as f64).sqrt().recip();
+        let scale_f = (unsafe { HEAD_DIM } as f64).sqrt().recip();
         let scores = q.matmul(&k.transpose(2, 3)?)?.affine(scale_f, 0.0)?;
         let scores = scores.broadcast_add(&mask)?;                    // apply causal mask
         let attn_w = softmax(&scores, D::Minus1)?;                   // [B, H, T, T]
@@ -325,12 +325,12 @@ pub fn forward_candle_train(
         // Merge heads: [B, H, T, Dh] → [B, T, D]
         let attn_out = attn_out.transpose(1, 2)?
             .contiguous()?
-            .reshape((batch, seq_len, N_EMBD))?;
+            .reshape((batch, seq_len, unsafe { N_EMBD }))?;
 
         // Output projection + residual: flatten → matmul → reshape → add
-        let attn_2d = attn_out.reshape((batch * seq_len, N_EMBD))?;
-        let proj = attn_2d.matmul(&layer.wo.as_tensor().t()?)?.reshape((batch, seq_len, N_EMBD))?;
-        let proj = if training { candle_nn::ops::dropout(&proj, DROPOUT_RATE)? } else { proj };
+        let attn_2d = attn_out.reshape((batch * seq_len, unsafe { N_EMBD }))?;
+        let proj = attn_2d.matmul(&layer.wo.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
+        let proj = if training { candle_nn::ops::dropout(&proj, unsafe { DROPOUT_RATE })? } else { proj };
         x = (x + proj)?;                                              // residual
 
         // MLP pre-norm
@@ -342,18 +342,18 @@ pub fn forward_candle_train(
         };
 
         // fc1 → squared ReLU → fc2 + residual
-        let xnm_2d = xn_mlp.reshape((batch * seq_len, N_EMBD))?;
-        let h1  = xnm_2d.matmul(&layer.fc1.as_tensor().t()?)?.reshape((batch, seq_len, MLP_DIM))?;
+        let xnm_2d = xn_mlp.reshape((batch * seq_len, unsafe { N_EMBD }))?;
+        let h1  = xnm_2d.matmul(&layer.fc1.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { MLP_DIM }))?;
         let h1r = h1.relu()?;
         let h2  = h1r.mul(&h1r)?;                                     // squared ReLU [B, T, 4D]
-        let h2_2d = h2.reshape((batch * seq_len, MLP_DIM))?;
-        let mlp_out = h2_2d.matmul(&layer.fc2.as_tensor().t()?)?.reshape((batch, seq_len, N_EMBD))?;
-        let mlp_out = if training { candle_nn::ops::dropout(&mlp_out, DROPOUT_RATE)? } else { mlp_out };
+        let h2_2d = h2.reshape((batch * seq_len, unsafe { MLP_DIM }))?;
+        let mlp_out = h2_2d.matmul(&layer.fc2.as_tensor().t()?)?.reshape((batch, seq_len, unsafe { N_EMBD }))?;
+        let mlp_out = if training { candle_nn::ops::dropout(&mlp_out, unsafe { DROPOUT_RATE })? } else { mlp_out };
         x = (x + mlp_out)?;
     }
 
     // ── LM head: [B, T, D] → [B*T, V] ───────────────────────────────
-    let x_2d = x.reshape((batch * seq_len, N_EMBD))?;
+    let x_2d = x.reshape((batch * seq_len, unsafe { N_EMBD }))?;
     let logits_2d = x_2d.matmul(&model.lm_head.as_tensor().t()?)?;   // [B*T, V]
 
     // ── Cross-entropy loss ────────────────────────────────────────────
@@ -381,14 +381,14 @@ mod tests {
 
         // ── Reference: full forward in one shot ──────────────────────────
         let mut kv_ref: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-            (0..N_LAYER).map(|_| Vec::new()).collect();
+            (0..unsafe { N_LAYER }).map(|_| Vec::new()).collect();
         let (full_logits, _) = forward(&tokens, &model, &mut kv_ref, false, None, 0);
         let ref_logits = full_logits.last().unwrap().clone();
 
         // ── Candidate: prefill [0..n-1], then single-token decode ────────
         let n = tokens.len();
         let mut kv_cache: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-            (0..N_LAYER).map(|_| Vec::new()).collect();
+            (0..unsafe { N_LAYER }).map(|_| Vec::new()).collect();
         // Prefill with all but the last token.
         forward(&tokens[..n - 1], &model, &mut kv_cache, false, None, 0);
         // Decode the last token.
