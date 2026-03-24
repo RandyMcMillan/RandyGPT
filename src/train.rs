@@ -33,15 +33,15 @@ pub fn estimate_loss(
     let mut count = 0usize;
 
     for _ in 0..eval_iters {
-        if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
+        if data.len() <= BLOCK_SIZE + 1 { continue; }
 
         let start = if !valid_starts.is_empty() {
             valid_starts[rng.choice(valid_starts.len())]
         } else {
-            rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
+            rng.choice(data.len() - BLOCK_SIZE - 1)
         };
-        let x = &data[start..start + unsafe { BLOCK_SIZE }];
-        let y = &data[start + 1..start + unsafe { BLOCK_SIZE } + 1];
+        let x = &data[start..start + BLOCK_SIZE];
+        let y = &data[start + 1..start + BLOCK_SIZE + 1];
 
         let logits_seq = if METAL_DEVICE.is_some() {
             forward_metal_logits(x, model)
@@ -163,11 +163,11 @@ fn generate_inner(
         generated.push(next_token);
         tokens.push(next_token);
 
-        if tokens.len() > unsafe { BLOCK_SIZE } {
+        if tokens.len() > BLOCK_SIZE {
             // Slide the context window: keep last BLOCK_SIZE tokens.
             // Use Metal-accelerated forward for the heavy matmuls — KV cache
             // can't be reused after a slide (absolute position embeddings).
-            tokens = tokens[tokens.len() - unsafe { BLOCK_SIZE }..].to_vec();
+            tokens = tokens[tokens.len() - BLOCK_SIZE..].to_vec();
             let logits = forward_metal_logits(&tokens, model);
             last_logits = logits.into_iter().last().unwrap();
         } else {
@@ -235,8 +235,8 @@ pub fn train(
             .filter_map(|_| {
                 if !valid_starts.is_empty() {
                     Some(valid_starts[rng.choice(valid_starts.len())])
-                } else if data.len() > unsafe { BLOCK_SIZE } + 1 {
-                    Some(rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1))
+                } else if data.len() > BLOCK_SIZE + 1 {
+                    Some(rng.choice(data.len() - BLOCK_SIZE - 1))
                 } else {
                     None
                 }
@@ -251,8 +251,8 @@ pub fn train(
         let results: Vec<(GradientBuffer, f32)> = batch_starts
             .par_iter()
             .map(|&start_idx| {
-                let x_vec: Vec<usize> = data[start_idx..start_idx + unsafe { BLOCK_SIZE }].to_vec();
-                let y_vec: Vec<usize> = data[start_idx + 1..start_idx + unsafe { BLOCK_SIZE } + 1].to_vec();
+                let x_vec: Vec<usize> = data[start_idx..start_idx + BLOCK_SIZE].to_vec();
+                let y_vec: Vec<usize> = data[start_idx + 1..start_idx + BLOCK_SIZE + 1].to_vec();
 
                 let mut thread_rng = Rng::new(start_idx as u64 + iter as u64);
 
@@ -721,7 +721,7 @@ pub fn train_candle(
     println!("=== Starting Training (Metal GPU via Candle) ===");
     if iter_start > 0 { println!("Resuming from iteration {}", iter_start); }
     println!("Iterations: {} → {}", iter_start, iterations);
-    println!("Batch size: {} × {} accum steps = {} effective", unsafe { BATCH_SIZE }, unsafe { GRAD_ACCUM_STEPS }, unsafe { BATCH_SIZE } * unsafe { GRAD_ACCUM_STEPS });
+    println!("Batch size: {} × {} accum steps = {} effective", BATCH_SIZE , GRAD_ACCUM_STEPS , BATCH_SIZE * GRAD_ACCUM_STEPS );
     println!("Learning rate: {} → {}", max_lr, min_lr);
     println!();
 
@@ -750,27 +750,27 @@ pub fn train_candle(
         let mut batch_loss_sum = 0.0f32;
         let mut accum_count = 0usize;
 
-        for _ in 0..unsafe { GRAD_ACCUM_STEPS } {
-            let mut tok_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
-            let mut tgt_data: Vec<u32> = Vec::with_capacity(unsafe { BATCH_SIZE } * unsafe { BLOCK_SIZE });
-            for _ in 0..unsafe { BATCH_SIZE } {
-                if data.len() <= unsafe { BLOCK_SIZE } + 1 { continue; }
+        for _ in 0..GRAD_ACCUM_STEPS {
+            let mut tok_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE * BLOCK_SIZE );
+            let mut tgt_data: Vec<u32> = Vec::with_capacity(BATCH_SIZE * BLOCK_SIZE );
+            for _ in 0..BATCH_SIZE {
+                if data.len() <= BLOCK_SIZE + 1 { continue; }
                 let start = if !valid_starts.is_empty() {
                     valid_starts[rng.choice(valid_starts.len())]
                 } else {
-                    rng.choice(data.len() - unsafe { BLOCK_SIZE } - 1)
+                    rng.choice(data.len() - BLOCK_SIZE - 1)
                 };
-                for t in 0..unsafe { BLOCK_SIZE } {
+                for t in 0..BLOCK_SIZE {
                     tok_data.push(data[start + t] as u32);
                     tgt_data.push(data[start + t + 1] as u32);
                 }
             }
-            let actual_batch = tok_data.len() / unsafe { BLOCK_SIZE };
+            let actual_batch = tok_data.len() / BLOCK_SIZE;
             if actual_batch == 0 { continue; }
 
-            let tokens  = Tensor::from_vec(tok_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
+            let tokens  = Tensor::from_vec(tok_data, (actual_batch, BLOCK_SIZE), &device)
                 .unwrap_or_else(|e| panic!("token tensor: {}", e));
-            let targets = Tensor::from_vec(tgt_data, (actual_batch, unsafe { BLOCK_SIZE }), &device)
+            let targets = Tensor::from_vec(tgt_data, (actual_batch, BLOCK_SIZE), &device)
                 .unwrap_or_else(|e| panic!("target tensor: {}", e));
 
             let loss = forward_candle_train(&tokens, &targets, model, true)
