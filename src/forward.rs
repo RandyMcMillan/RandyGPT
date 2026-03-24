@@ -381,14 +381,14 @@ mod tests {
 
         // ── Reference: full forward in one shot ──────────────────────────
         let mut kv_ref: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-            (0..N_LAYER).map(|_| Vec::new()).collect();
+            (0..(N_LAYER as usize)).map(|_| Vec::new()).collect();
         let (full_logits, _) = forward(&tokens, &model, &mut kv_ref, false, None, 0);
         let ref_logits = full_logits.last().unwrap().clone();
 
         // ── Candidate: prefill [0..n-1], then single-token decode ────────
         let n = tokens.len();
         let mut kv_cache: Vec<Vec<(Vec<f32>, Vec<f32>)>> =
-            (0..N_LAYER).map(|_| Vec::new()).collect();
+            (0..(N_LAYER as usize)).map(|_| Vec::new()).collect();
         // Prefill with all but the last token.
         forward(&tokens[..n - 1], &model, &mut kv_cache, false, None, 0);
         // Decode the last token.
